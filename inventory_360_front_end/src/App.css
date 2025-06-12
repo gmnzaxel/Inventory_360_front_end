@@ -1,0 +1,14 @@
+/* src/App.css */
+body {
+  background-color: #f4f6f9; /* Un color de fondo global más suave */
+}
+
+.app-container {
+  display: flex;
+}
+
+.main-content {
+  flex-grow: 1; /* Hace que el contenido principal ocupe todo el espacio restante */
+  height: 100vh;
+  overflow-y: auto; /* Permite scroll vertical si el contenido es muy largo */
+}
