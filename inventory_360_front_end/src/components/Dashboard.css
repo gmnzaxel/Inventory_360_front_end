@@ -1,0 +1,98 @@
+/* src/components/Dashboard.css */
+.dashboard-container {
+  background-color: #f8f9fa;
+}
+
+.stat-card {
+  border: none;
+  border-radius: 12px;
+  color: white;
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.stat-card .icon-container {
+  opacity: 0.2;
+  font-size: 4rem;
+  position: absolute;
+  top: 50%;
+  left: -20px;
+  transform: translateY(-50%) rotate(-15deg);
+}
+
+.stat-card h5 {
+  font-size: 1rem;
+  font-weight: 300;
+}
+
+.stat-card h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.chart-placeholder .progress {
+    width: 12%;
+    writing-mode: vertical-lr;
+    transform: rotate(180deg);
+    background-color: #e9ecef;
+}
+
+.chart-placeholder .progress-bar {
+    background-color: #0d6efd;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+}
+
+.badge.bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
+.text-success { color: #198754 !important; }
+
+.badge.bg-info-soft { background-color: rgba(13, 202, 240, 0.1); }
+.text-info { color: #0dcaf0 !important; }
+
+.badge.bg-primary-soft { background-color: rgba(13, 110, 253, 0.1); }
+.text-primary { color: #0d6efd !important; }
+
+.badge.bg-warning-soft { background-color: rgba(255, 193, 7, 0.1); }
+.text-warning { color: #ffc107 !important; }
+
+.shadow-sm {
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
+}
+
+/* --- Estilos para la nueva fila --- */
+
+.table {
+    vertical-align: middle;
+}
+
+/* Pie Chart (Gráfico de Torta) */
+.pie-chart {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    transform: rotate(-90deg);
+}
+
+.pie-chart .pie-slice {
+    fill: none;
+    stroke-width: 32;
+    stroke: var(--color);
+    stroke-dasharray: calc(var(--value) * 3.1415 * 2 * 16 / 100) calc(3.1415 * 2 * 16);
+    stroke-dashoffset: calc(var(--offset) * 3.1415 * 2 * 16 / 100);
+    transition: all 0.5s ease-in-out;
+}
+
+.pie-chart-legend div {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+}
