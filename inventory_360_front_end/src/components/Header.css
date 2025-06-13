@@ -1,0 +1,15 @@
+.app-header {
+  background-color: #fff;
+  padding: 0.75rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.sidebar-toggle-btn {
+  border: 1px solid #dee2e6;
+  width: 40px;
+  height: 40px;
+}

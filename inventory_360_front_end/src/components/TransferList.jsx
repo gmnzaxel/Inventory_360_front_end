@@ -1,4 +1,3 @@
-// src/components/TransferList.jsx
 import React, { useState } from 'react';
 import { Button, Form, Table, Badge, Dropdown, InputGroup, Row, Col, Card, Pagination } from 'react-bootstrap';
 import { FaFilePdf, FaFileCsv, FaPrint, FaTrash, FaEye, FaPlus } from 'react-icons/fa';

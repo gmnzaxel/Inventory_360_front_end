@@ -4,10 +4,15 @@ import App from './App';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
+// 1. Importa nuestro AuthProvider
+import { AuthProvider } from './context/AuthContext';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    {/* Ya no necesitamos BrowserRouter aquí */}
-    <App />
+    {/* 2. Envuelve toda la App con AuthProvider */}
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );

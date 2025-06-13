@@ -1,38 +1,84 @@
-// src/components/Sidebar.jsx
 import React from 'react';
-import { Nav } from 'react-bootstrap';
-import { FaTachometerAlt, FaBoxOpen, FaShoppingCart, FaDollarSign, FaFileInvoice, FaExchangeAlt, FaUndo, FaFileContract, FaUsers, FaChartBar, FaCog } from 'react-icons/fa';
+import { Nav, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { 
+  FaTachometerAlt, FaBoxOpen, FaShoppingCart, FaDollarSign, 
+  FaFileInvoice, FaExchangeAlt, FaUndo, FaFileContract, 
+  FaUsers, FaChartBar, FaCog, FaSignOutAlt, FaWarehouse
+} from 'react-icons/fa';
 import './Sidebar.css';
 
-const Sidebar = () => {
+// Componente helper para crear los links con tooltip
+const NavItem = ({ to, icon, text, isSidebarOpen }) => {
+  const navLink = (
+    <Nav.Link as={NavLink} to={to} end={to === "/"} className="d-flex align-items-center">
+      {icon} <span>{text}</span>
+    </Nav.Link>
+  );
+
+  // Si el sidebar está cerrado, envolvemos el link con el tooltip
+  if (!isSidebarOpen) {
+    return (
+      <OverlayTrigger
+        placement="right"
+        delay={{ show: 250, hide: 400 }}
+        overlay={<Tooltip id={`tooltip-${text}`}>{text}</Tooltip>}
+      >
+        {navLink}
+      </OverlayTrigger>
+    );
+  }
+
+  return navLink;
+};
+
+
+const Sidebar = ({ isSidebarOpen }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const menuItems = [
+    { to: "/", icon: <FaTachometerAlt className="nav-icon" />, text: "Dashboard" },
+    { to: "/product", icon: <FaBoxOpen className="nav-icon" />, text: "Product" },
+    { to: "/purchase", icon: <FaShoppingCart className="nav-icon" />, text: "Purchase" },
+    { to: "/sale", icon: <FaDollarSign className="nav-icon" />, text: "Sale" },
+    { to: "/expense", icon: <FaFileInvoice className="nav-icon" />, text: "Expense" },
+    { to: "/quotation", icon: <FaFileContract className="nav-icon" />, text: "Quotation" },
+    { to: "/transfer", icon: <FaExchangeAlt className="nav-icon" />, text: "Transfer" },
+    { to: "/return", icon: <FaUndo className="nav-icon" />, text: "Return" },
+    { to: "/accounting", icon: <FaFileContract className="nav-icon" />, text: "Accounting" },
+    { to: "/hrm", icon: <FaUsers className="nav-icon" />, text: "HRM" },
+    { to: "/people", icon: <FaUsers className="nav-icon" />, text: "People" },
+    { to: "/reports", icon: <FaChartBar className="nav-icon" />, text: "Reports" },
+    { to: "/settings", icon: <FaCog className="nav-icon" />, text: "Settings" },
+  ];
+
   return (
-    <div className="sidebar bg-dark">
-      <div className="sidebar-header">
-        <h3>SalePro</h3>
+    <div className={`sidebar bg-dark d-flex flex-column ${isSidebarOpen ? '' : 'collapsed'}`}>
+      <div>
+        <div className="sidebar-header">
+          <FaWarehouse className="nav-icon" />
+          <span>Inventory 360</span>
+        </div>
+        <Nav className="flex-column">
+          {menuItems.map((item) => (
+            <NavItem key={item.text} {...item} isSidebarOpen={isSidebarOpen} />
+          ))}
+        </Nav>
       </div>
-      <Nav className="flex-column">
-        {/* El "Dashboard" es ahora el link activo */}
-        <Nav.Link href="#dashboard" active className="d-flex align-items-center">
-            <FaTachometerAlt className="me-2" /> Dashboard
-        </Nav.Link>
-        <Nav.Link href="#product" className="d-flex align-items-center">
-            <FaBoxOpen className="me-2" /> Product
-        </Nav.Link>
-        <Nav.Link href="#purchase" className="d-flex align-items-center"><FaShoppingCart className="me-2" /> Purchase</Nav.Link>
-        <Nav.Link href="#sale" className="d-flex align-items-center"><FaDollarSign className="me-2" /> Sale</Nav.Link>
-        <Nav.Link href="#expense" className="d-flex align-items-center"><FaFileInvoice className="me-2" /> Expense</Nav.Link>
-        <Nav.Link href="#quotation" className="d-flex align-items-center"><FaFileContract className="me-2" /> Quotation</Nav.Link>
-        {/* El link de Transfer ya no está activo por defecto */}
-        <Nav.Link href="#transfer" className="d-flex align-items-center">
-            <FaExchangeAlt className="me-2" /> Transfer
-        </Nav.Link>
-        <Nav.Link href="#return" className="d-flex align-items-center"><FaUndo className="me-2" /> Return</Nav.Link>
-        <Nav.Link href="#accounting" className="d-flex align-items-center"><FaFileContract className="me-2" /> Accounting</Nav.Link>
-        <Nav.Link href="#hrm" className="d-flex align-items-center"><FaUsers className="me-2" /> HRM</Nav.Link>
-        <Nav.Link href="#people" className="d-flex align-items-center"><FaUsers className="me-2" /> People</Nav.Link>
-        <Nav.Link href="#reports" className="d-flex align-items-center"><FaChartBar className="me-2" /> Reports</Nav.Link>
-        <Nav.Link href="#settings" className="d-flex align-items-center"><FaCog className="me-2" /> Settings</Nav.Link>
-      </Nav>
+      
+      <div className="mt-auto p-3">
+        <Button variant="danger" className="w-100 d-flex align-items-center justify-content-center" onClick={handleLogout}>
+          <FaSignOutAlt className="nav-icon" />
+          <span>Cerrar Sesión</span>
+        </Button>
+      </div>
     </div>
   );
 };
