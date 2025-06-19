@@ -11,86 +11,86 @@
   overflow-x: hidden;
 }
 
-.sidebar.collapsed {
-  width: 80px;
+.sidebar.collapsed { 
+  width: 80px; 
 }
 
-/* --- Transiciones suaves para el texto --- */
-.sidebar .sidebar-header span,
-.sidebar .nav-link span,
-.sidebar .btn span {
-  white-space: nowrap;
-  opacity: 1;
-  transition: opacity 0.2s ease-in-out;
-}
-
+/* Oculta el texto cuando está colapsado */
 .sidebar.collapsed .sidebar-header span,
 .sidebar.collapsed .nav-link span,
-.sidebar.collapsed .btn span {
-  opacity: 0;
-  width: 0;
-  visibility: hidden;
+.sidebar.collapsed .sidebar-section-title {
+  display: none;
 }
 
+.sidebar .sidebar-header { 
+  height: 70px;
+  padding: 0 1.5rem; 
+  display: flex; 
+  align-items: center; 
+  font-weight: bold; 
+  font-size: 1.5rem; 
+  white-space: nowrap; 
+  color: #ffffff;
+}
 
-.sidebar .sidebar-header {
-  padding: 1rem 1.5rem;
-  display: flex;
-  align-items: center;
-  margin-bottom: 1rem;
-  font-weight: bold;
-  font-size: 1.5rem;
+.sidebar .sidebar-section {
+  margin-top: 1rem;
+}
+
+.sidebar .sidebar-section-title {
+  padding: 0 1.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #6c757d;
+  font-weight: 700;
   white-space: nowrap;
-}
-
-.sidebar.collapsed .sidebar-header {
-  justify-content: center;
-  padding: 1rem 0;
-}
-
-.sidebar.collapsed .sidebar-header .nav-icon {
-  margin-right: 0;
 }
 
 .sidebar .nav-link {
   color: #adb5bd;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
   border-radius: 0.375rem;
-  margin: 0.25rem 1rem;
+  margin: 0.1rem 1rem;
   white-space: nowrap;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
-.sidebar .nav-link:hover,
-.sidebar .nav-link.active {
-  color: #ffffff;
-  background-color: #0d6efd;
+.sidebar .nav-link:hover, 
+.sidebar .nav-link.active { 
+  color: #ffffff; 
+  background-color: #0d6efd; 
 }
 
-.sidebar .nav-icon {
-  font-size: 1.2rem;
-  min-width: 25px;
+.sidebar .nav-icon { 
+  font-size: 1.1rem; 
+  flex-shrink: 0;
+  width: 30px; 
   margin-right: 1rem;
   text-align: center;
-  flex-shrink: 0;
-  transition: margin-right 0.3s ease;
 }
 
-/* --- Alineación perfecta cuando está colapsado --- */
-.sidebar.collapsed .nav-link,
-.sidebar.collapsed .btn {
+/* --- REGLAS DEFINITIVAS PARA EL CENTRADO --- */
+
+.sidebar.collapsed .sidebar-header,
+.sidebar.collapsed .nav-link { 
+  /* Le decimos al contenedor que centre su contenido */
   justify-content: center;
+  /* Reseteamos cualquier espaciado que interfiera */
+  padding: 0.6rem 0;
+  margin: 0.25rem auto;
+  width: 70%; 
 }
 
-/* Se elimina el padding horizontal para centrar el icono correctamente */
-.sidebar.collapsed .nav-link {
-    padding-left: 0;
-    padding-right: 0;
+.sidebar.collapsed .sidebar-header {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
 }
 
+/* La regla más importante: eliminamos el margen del ícono */
 .sidebar.collapsed .nav-icon {
   margin-right: 0;
 }

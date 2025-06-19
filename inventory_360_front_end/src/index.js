@@ -4,15 +4,17 @@ import App from './App';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-// 1. Importa nuestro AuthProvider
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext'; // 1. Importamos el ThemeProvider
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    {/* 2. Envuelve toda la App con AuthProvider */}
     <AuthProvider>
-      <App />
+      {/* 2. Envolvemos la App con ThemeProvider */}
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </AuthProvider>
   </React.StrictMode>
 );

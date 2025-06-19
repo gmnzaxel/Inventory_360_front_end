@@ -7,11 +7,16 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import './App.css';
 
-const MainLayout = ({ isSidebarOpen, toggleSidebar }) => (
+const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => (
   <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-    <Sidebar isSidebarOpen={isSidebarOpen} />
+    {/* Pasamos los manejadores de eventos directamente al Sidebar */}
+    <Sidebar 
+      isSidebarOpen={isSidebarOpen} 
+      handleMouseEnter={handleMouseEnter} 
+      handleMouseLeave={handleMouseLeave} 
+    />
     <div className="content-wrapper">
-      <Header toggleSidebar={toggleSidebar} />
+      <Header />
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -23,17 +28,24 @@ const MainLayout = ({ isSidebarOpen, toggleSidebar }) => (
 );
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleMouseEnter = () => setIsSidebarOpen(true);
+  const handleMouseLeave = () => setIsSidebarOpen(false);
 
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<AuthPage />} />
         <Route path="/register" element={<AuthPage />} />
+        
         <Route path="/*" element={
           <ProtectedRoute>
-            <MainLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+            <MainLayout 
+              isSidebarOpen={isSidebarOpen} 
+              handleMouseEnter={handleMouseEnter} 
+              handleMouseLeave={handleMouseLeave}
+            />
           </ProtectedRoute>
         }/>
       </Routes>
