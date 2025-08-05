@@ -1,0 +1,103 @@
+/* --- TEMA CLARO (POR DEFECTO) --- */
+:root, .light-theme {
+  --body-bg: #f8f9fa;
+  --sidebar-bg: #212529;
+  --sidebar-text: #adb5bd;
+  --sidebar-text-active: #ffffff;
+  --sidebar-active-bg: #0d6efd;
+  --sidebar-section-title: #6c757d;
+  --header-bg: #ffffff;
+  --header-border: #dee2e6;
+  --card-bg: #ffffff;
+  --card-border: #dee2e6;
+  --text-color: #212529;
+  --text-color-muted: #6c757d;
+
+  /* Colores para componentes específicos */
+  --table-bg: #ffffff;
+  --table-header-bg: #f8f9fa;
+  --table-row-hover-bg: #f1f1f1;
+  --list-group-item-bg: #ffffff;
+  --dropdown-bg: #ffffff;
+}
+
+/* --- TEMA OSCURO --- */
+.dark-theme {
+  --body-bg: #121212;
+  --sidebar-bg: #1a1a1a;
+  --sidebar-text: #888;
+  --sidebar-text-active: #ffffff;
+  --sidebar-active-bg: #0d6efd;
+  --sidebar-section-title: #6c757d;
+  --header-bg: #1a1a1a;
+  --header-border: #343a40;
+  --card-bg: #1a1a1a;
+  --card-border: #343a40;
+  --text-color: #e0e0e0;
+  --text-color-muted: #888;
+
+  /* Colores para componentes específicos */
+  --table-bg: #1a1a1a;
+  --table-header-bg: #212529;
+  --table-row-hover-bg: #2c2c2c;
+  --list-group-item-bg: #1a1a1a;
+  --dropdown-bg: #212529;
+}
+
+/* --- ESTILOS DE LAYOUT (sin cambios) --- */
+body {
+  background-color: var(--body-bg);
+  color: var(--text-color);
+  overflow-x: hidden;
+}
+.app-container { display: flex; position: relative; }
+.content-wrapper { flex-grow: 1; transition: margin-left 0.3s ease; padding: 0; margin-left: 260px; }
+.app-container.sidebar-closed .content-wrapper { margin-left: 80px; }
+.main-content { padding: 1.5rem; }
+
+/* --- FORZAR ESTILOS DE TEMA EN COMPONENTES DE BOOTSTRAP --- */
+.card {
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+}
+
+.table {
+  color: var(--text-color) !important;
+}
+/* Forzar el fondo de cada celda y su borde */
+.table td, .table th {
+    background-color: var(--table-bg) !important;
+    border-color: var(--card-border) !important;
+}
+.table thead th {
+    background-color: var(--table-header-bg) !important;
+}
+.table-hover > tbody > tr:hover > * {
+  background-color: var(--table-row-hover-bg) !important;
+}
+
+.list-group-item {
+  background-color: var(--list-group-item-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+.dropdown-menu {
+    background-color: var(--dropdown-bg) !important;
+    border: 1px solid var(--card-border) !important;
+}
+.dropdown-item {
+    color: var(--text-color) !important;
+}
+.dropdown-item:hover {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+}
+.dropdown-divider {
+    border-top: 1px solid var(--card-border) !important;
+}
+.dropdown-header {
+    color: var(--text-color-muted) !important;
+}
+
+.text-muted {
+  color: var(--text-color-muted) !important;
+}
