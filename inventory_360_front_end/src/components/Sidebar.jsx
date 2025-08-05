@@ -2,9 +2,8 @@ import React from 'react';
 import { Nav, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { 
-  FaTachometerAlt, FaBox, FaTags, FaExchangeAlt, 
-  FaShoppingCart, FaHandHoldingUsd, FaFileAlt, FaWarehouse, 
-  FaBuilding, FaBoxes
+  FaTachometerAlt, FaBox, FaExchangeAlt, FaShoppingCart, 
+  FaHandHoldingUsd, FaWarehouse, FaBuilding, FaBoxes, FaUserShield
 } from 'react-icons/fa';
 import './Sidebar.css';
 
@@ -25,6 +24,7 @@ const NavItem = ({ to, icon, text, isSidebarOpen }) => {
   return navLink;
 };
 
+// 1. Asegúrate de que el componente reciba las props handleMouseEnter y handleMouseLeave
 const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
   const menuSections = [
     {
@@ -32,7 +32,6 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
       items: [
         { to: "/", icon: <FaTachometerAlt className="nav-icon" />, text: "Dashboard" },
         { to: "/products", icon: <FaBox className="nav-icon" />, text: "Productos" },
-        { to: "/categories", icon: <FaTags className="nav-icon" />, text: "Categorías" },
       ]
     },
     {
@@ -48,14 +47,18 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
       items: [
         { to: "/branches", icon: <FaWarehouse className="nav-icon" />, text: "Sucursales" },
         { to: "/stock", icon: <FaBoxes className="nav-icon" />, text: "Stock" },
-        { to: "/documents", icon: <FaFileAlt className="nav-icon" />, text: "Documentos" },
-        { to: "/business", icon: <FaBuilding className="nav-icon" />, text: "Empresa" },
+      ]
+    },
+    {
+      title: "Administración",
+      items: [
+        { to: "/roles", icon: <FaUserShield className="nav-icon" />, text: "Gestión de Roles" },
       ]
     }
   ];
 
   return (
-    // Añadimos los manejadores de eventos al div principal del Sidebar
+    // 2. Aplicamos los eventos de ratón aquí, en el div del propio Sidebar
     <div 
       className={`sidebar bg-dark d-flex flex-column ${isSidebarOpen ? '' : 'collapsed'}`}
       onMouseEnter={handleMouseEnter}

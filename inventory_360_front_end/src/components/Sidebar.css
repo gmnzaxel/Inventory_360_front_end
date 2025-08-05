@@ -15,7 +15,6 @@
   width: 80px; 
 }
 
-/* Oculta el texto cuando está colapsado */
 .sidebar.collapsed .sidebar-header span,
 .sidebar.collapsed .nav-link span,
 .sidebar.collapsed .sidebar-section-title {
@@ -72,16 +71,13 @@
   text-align: center;
 }
 
-/* --- REGLAS DEFINITIVAS PARA EL CENTRADO --- */
-
+/* --- REGLAS CORREGIDAS Y SIMPLIFICADAS PARA EL CENTRADO --- */
 .sidebar.collapsed .sidebar-header,
 .sidebar.collapsed .nav-link { 
-  /* Le decimos al contenedor que centre su contenido */
   justify-content: center;
-  /* Reseteamos cualquier espaciado que interfiera */
   padding: 0.6rem 0;
   margin: 0.25rem auto;
-  width: 70%; 
+  width: 75%;
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -90,7 +86,6 @@
   margin-bottom: 1rem;
 }
 
-/* La regla más importante: eliminamos el margen del ícono */
 .sidebar.collapsed .nav-icon {
   margin-right: 0;
 }
