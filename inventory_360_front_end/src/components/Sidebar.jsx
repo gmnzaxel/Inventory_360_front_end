@@ -3,7 +3,7 @@ import { Nav, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { 
   FaTachometerAlt, FaBox, FaExchangeAlt, FaShoppingCart, 
-  FaHandHoldingUsd, FaWarehouse, FaBuilding, FaBoxes, FaUserShield
+  FaHandHoldingUsd, FaWarehouse, FaBoxes, FaUserShield, FaTruck // 1. Importa el nuevo ícono
 } from 'react-icons/fa';
 import './Sidebar.css';
 
@@ -24,7 +24,6 @@ const NavItem = ({ to, icon, text, isSidebarOpen }) => {
   return navLink;
 };
 
-// 1. Asegúrate de que el componente reciba las props handleMouseEnter y handleMouseLeave
 const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
   const menuSections = [
     {
@@ -47,6 +46,7 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
       items: [
         { to: "/branches", icon: <FaWarehouse className="nav-icon" />, text: "Sucursales" },
         { to: "/stock", icon: <FaBoxes className="nav-icon" />, text: "Stock" },
+        { to: "/suppliers", icon: <FaTruck className="nav-icon" />, text: "Proveedores" }, // 2. Añade la nueva opción
       ]
     },
     {
@@ -58,7 +58,6 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
   ];
 
   return (
-    // 2. Aplicamos los eventos de ratón aquí, en el div del propio Sidebar
     <div 
       className={`sidebar bg-dark d-flex flex-column ${isSidebarOpen ? '' : 'collapsed'}`}
       onMouseEnter={handleMouseEnter}

@@ -7,14 +7,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './components/Dashboard';
 import ProductsPage from './pages/ProductsPage';
 import MovementsPage from './pages/MovementsPage';
-import BranchesPage from './pages/BranchesPage';
-import StockPage from './pages/StockPage';
 import SalesPage from './pages/SalesPage';
 import PurchasesPage from './pages/PurchasesPage';
+import BranchesPage from './pages/BranchesPage';
+import StockPage from './pages/StockPage';
 import RolesPage from './pages/RolesPage';
-import './App.css';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import SuppliersPage from './pages/SuppliersPage'; // 1. Importa la nueva página
+import './App.css';
 
 const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => (
   <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -30,14 +31,15 @@ const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => (
           <Route path="/" element={<Dashboard />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/movements" element={<MovementsPage />} />
-          <Route path="/branches" element={<BranchesPage />} />
-          <Route path="/stock" element={<StockPage />} />
           <Route path="/sales" element={<SalesPage />} />
           <Route path="/purchases" element={<PurchasesPage />} />
+          <Route path="/branches" element={<BranchesPage />} />
+          <Route path="/stock" element={<StockPage />} />
+          <Route path="/suppliers" element={<SuppliersPage />} /> {/* 2. Añade la nueva ruta */}
           <Route path="/roles" element={<RolesPage />} />
-          <Route path="*" element={<Navigate to="/" />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
     </div>

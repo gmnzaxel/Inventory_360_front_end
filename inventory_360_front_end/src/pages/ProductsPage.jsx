@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Container, Row, Col, Card, Button, Form, InputGroup, Table, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, InputGroup, Table, Badge, Image, Spinner, Alert, Modal } from 'react-bootstrap';
 import { FaPlus, FaSearch, FaEdit, FaTrash } from 'react-icons/fa';
 import ProductModal from '../components/ProductModal';
 
@@ -18,7 +18,7 @@ const ProductsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = async () => {
     try {
       const response = await axios.get(`${API_URL}/products/`, {
         params: { search: searchTerm }
@@ -30,7 +30,7 @@ const ProductsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -41,7 +41,7 @@ const ProductsPage = () => {
     return () => {
       clearTimeout(timerId);
     };
-  }, [fetchProducts]);
+  }, [searchTerm]);
 
   const handleSuccess = () => {
     fetchProducts();
@@ -107,7 +107,12 @@ const ProductsPage = () => {
 
     return products.map(product => (
       <tr key={product.id}>
-        <td className="ps-3 fw-bold">{product.name}</td>
+        <td className="ps-3">
+          <div className="d-flex align-items-center">
+            <Image src={'https://placehold.co/60x60/secondary/white?text=P'} roundedCircle className="me-3" />
+            <span className="fw-bold">{product.name}</span>
+          </div>
+        </td>
         <td>{product.category?.name || 'Sin categoría'}</td>
         <td className="text-end">${parseFloat(product.price).toFixed(2)}</td>
         <td className="text-center">
