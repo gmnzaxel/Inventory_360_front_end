@@ -1,53 +1,124 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Table, Badge, Form, InputGroup, Image } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Container, Row, Col, Card, Button, Table, Badge, Form, InputGroup, Image, Spinner, Alert } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaEdit } from 'react-icons/fa';
 
-const StockPage = () => {
-  // Datos estáticos de ejemplo para la vista
-  const [stockItems] = useState([
-    { id: 1, product: 'Laptop Pro X1', branch: 'Almacén Central', quantity: 15, minStock: 10, image: 'https://placehold.co/60x60/0d6efd/white?text=LPX' },
-    { id: 2, product: 'Smartphone G-Plus', branch: 'Almacén Central', quantity: 32, minStock: 20, image: 'https://placehold.co/60x60/198754/white?text=SGP' },
-    { id: 3, product: 'Teclado Mecánico K-800', branch: 'Sucursal Norte', quantity: 50, minStock: 15, image: 'https://placehold.co/60x60/ffc107/white?text=TMK' },
-    { id: 4, product: 'Monitor UltraWide 34"', branch: 'Almacén Central', quantity: 8, minStock: 10, image: 'https://placehold.co/60x60/dc3545/white?text=MUW' },
-    { id: 5, product: 'Silla Ergonómica Pro', branch: 'Sucursal Sur', quantity: 0, minStock: 5, image: 'https://placehold.co/60x60/6c757d/white?text=SEP' },
-    { id: 6, product: 'Laptop Pro X1', branch: 'Sucursal Norte', quantity: 5, minStock: 5, image: 'https://placehold.co/60x60/0d6efd/white?text=LPX' },
-  ]);
+const API_URL = 'http://localhost:8000/api/control';
 
-  const getStockStatus = (quantity, minStock) => {
-    if (quantity <= 0) return { variant: 'danger', text: 'Sin Stock' };
-    if (quantity <= minStock) return { variant: 'warning', text: 'Bajo Stock' };
+const StockPage = () => {
+  const [stockItems, setStockItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchStock = async () => {
+      try {
+        // Hacemos la petición GET a tu endpoint de stocks
+        const response = await axios.get(`${API_URL}/stocks/`);
+        setStockItems(response.data);
+      } catch (err) {
+        setError('No se pudo cargar el stock. Por favor, intenta de nuevo más tarde.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStock();
+  }, []);
+
+  const getStockStatus = (item) => {
+    if (item.quantity <= 0) return { variant: 'danger', text: 'Sin Stock' };
+    // Usamos el campo 'is_low_stock' que viene directamente del backend
+    if (item.is_low_stock) return { variant: 'warning', text: 'Bajo Stock' };
     return { variant: 'success', text: 'OK' };
+  };
+
+  const renderTableContent = () => {
+    if (loading) {
+      return (
+        <tr>
+          <td colSpan="6" className="text-center py-5">
+            <Spinner animation="border" />
+            <p className="mt-2 mb-0">Cargando stock...</p>
+          </td>
+        </tr>
+      );
+    }
+
+    if (error) {
+      return (
+        <tr>
+          <td colSpan="6">
+            <Alert variant="danger" className="m-3">{error}</Alert>
+          </td>
+        </tr>
+      );
+    }
+
+    if (stockItems.length === 0) {
+      return (
+        <tr>
+          <td colSpan="6" className="text-center py-5">
+            No hay registros de stock para mostrar.
+          </td>
+        </tr>
+      );
+    }
+
+    return stockItems.map(item => {
+      const status = getStockStatus(item);
+      return (
+        <tr key={item.id}>
+          <td className="ps-3">
+            <div className="d-flex align-items-center">
+              {/* Leemos la imagen del objeto anidado 'product' */}
+              <Image src={item.product?.image || 'https://placehold.co/60x60/secondary/white?text=P'} roundedCircle className="me-3" />
+              <span className="fw-bold">{item.product?.name || 'Producto no encontrado'}</span>
+            </div>
+          </td>
+          {/* Leemos el nombre del objeto anidado 'branch' */}
+          <td>{item.branch?.name || 'Sucursal no encontrada'}</td>
+          <td className="text-center">{item.quantity}</td>
+          <td className="text-center">{item.minimum_stock}</td>
+          <td className="text-center">
+            <Badge pill bg={status.variant}>
+              {status.text}
+            </Badge>
+          </td>
+          <td className="text-center">
+            <Button variant="outline-primary" size="sm" title="Editar Stock Mínimo">
+              <FaEdit />
+            </Button>
+          </td>
+        </tr>
+      );
+    });
   };
 
   return (
     <Container fluid>
-      {/* Encabezado de la página */}
       <Row className="align-items-center mb-4">
         <Col>
           <h2 className="h4 mb-0">Control de Stock</h2>
         </Col>
       </Row>
 
-      {/* Tarjeta principal con filtros y tabla */}
       <Card className="shadow-sm">
         <Card.Header className="p-3">
           <Row className="align-items-center gy-3">
-            {/* Input de Búsqueda por Producto */}
             <Col md={6} lg={4}>
               <InputGroup>
                 <InputGroup.Text><FaSearch /></InputGroup.Text>
                 <Form.Control placeholder="Buscar por producto..." />
               </InputGroup>
             </Col>
-            {/* Filtro por Sucursal */}
             <Col md={6} lg={3}>
               <InputGroup>
                 <InputGroup.Text><FaFilter /></InputGroup.Text>
                 <Form.Select>
                   <option value="">Todas las sucursales</option>
-                  <option>Almacén Central</option>
-                  <option>Sucursal Norte</option>
-                  <option>Sucursal Sur</option>
+                  {/* Aquí podrías cargar las sucursales dinámicamente */}
                 </Form.Select>
               </InputGroup>
             </Col>
@@ -55,7 +126,6 @@ const StockPage = () => {
         </Card.Header>
 
         <Card.Body className="p-0">
-          {/* Tabla de Stock */}
           <Table responsive hover className="mb-0">
             <thead className="table-light">
               <tr>
@@ -68,32 +138,7 @@ const StockPage = () => {
               </tr>
             </thead>
             <tbody>
-              {stockItems.map(item => {
-                const status = getStockStatus(item.quantity, item.minStock);
-                return (
-                  <tr key={item.id}>
-                    <td className="ps-3">
-                      <div className="d-flex align-items-center">
-                        <Image src={item.image} roundedCircle className="me-3" />
-                        <span className="fw-bold">{item.product}</span>
-                      </div>
-                    </td>
-                    <td>{item.branch}</td>
-                    <td className="text-center">{item.quantity}</td>
-                    <td className="text-center">{item.minStock}</td>
-                    <td className="text-center">
-                      <Badge pill bg={status.variant}>
-                        {status.text}
-                      </Badge>
-                    </td>
-                    <td className="text-center">
-                      <Button variant="outline-primary" size="sm">
-                        <FaEdit />
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {renderTableContent()}
             </tbody>
           </Table>
         </Card.Body>

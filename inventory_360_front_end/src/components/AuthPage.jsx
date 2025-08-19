@@ -1,135 +1,153 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { Form, Button, Alert, Card, InputGroup } from 'react-bootstrap';
-import { FaWarehouse, FaEnvelope, FaLock, FaUser, FaUserCircle } from 'react-icons/fa';
-import './AuthPage.css';
+import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 
-// --- Sub-componente para el formulario de Login ---
-const LoginForm = ({ onSwitch }) => {
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const { login } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      await login(identifier, password);
-      navigate('/');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  return (
-    <div>
-      <h2 className="auth-title">Iniciar Sesión</h2>
-      <p className="auth-subtitle text-muted">Bienvenido de nuevo</p>
-      <Form onSubmit={handleSubmit}>
-        {error && <Alert variant="danger" className="py-2">{error}</Alert>}
-        <InputGroup className="mb-3">
-          <InputGroup.Text><FaUserCircle /></InputGroup.Text>
-          <Form.Control type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Email o Nombre de usuario" />
-        </InputGroup>
-        <InputGroup className="mb-4">
-          <InputGroup.Text><FaLock /></InputGroup.Text>
-          <Form.Control type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" />
-        </InputGroup>
-        <Button variant="primary" type="submit" className="w-100 py-2">
-          Ingresar
-        </Button>
-      </Form>
-      <div className="text-center mt-3">
-        <span className="auth-switch-link" onClick={onSwitch}>¿No tienes una cuenta? Regístrate</span>
-      </div>
-    </div>
-  );
-};
-
-// --- Sub-componente para el formulario de Registro ---
-const RegisterForm = ({ onSwitch }) => {
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const { register } = useAuth();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (password !== passwordConfirm) return setError('Las contraseñas no coinciden');
-    try {
-      await register(email, password, name, username);
-      setSuccess('¡Registro exitoso! Por favor, inicia sesión.');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  return (
-    <div>
-      <h2 className="auth-title">Crear Cuenta</h2>
-      <p className="auth-subtitle text-muted">Únete a nuestro equipo</p>
-      <Form onSubmit={handleSubmit}>
-        {error && <Alert variant="danger" className="py-2">{error}</Alert>}
-        {success && <Alert variant="success" className="py-2">{success}</Alert>}
-        <InputGroup className="mb-3">
-            <InputGroup.Text><FaUser /></InputGroup.Text>
-            <Form.Control type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" />
-        </InputGroup>
-        <InputGroup className="mb-3">
-            <InputGroup.Text><FaUserCircle /></InputGroup.Text>
-            <Form.Control type="text" required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Nombre de usuario" />
-        </InputGroup>
-        <InputGroup className="mb-3">
-            <InputGroup.Text><FaEnvelope /></InputGroup.Text>
-            <Form.Control type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-        </InputGroup>
-        <InputGroup className="mb-3">
-            <InputGroup.Text><FaLock /></InputGroup.Text>
-            <Form.Control type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" />
-        </InputGroup>
-        <InputGroup className="mb-4">
-            <InputGroup.Text><FaLock /></InputGroup.Text>
-            <Form.Control type="password" required value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} placeholder="Confirmar Contraseña" />
-        </InputGroup>
-        <Button variant="primary" type="submit" className="w-100 py-2">
-          Crear Cuenta
-        </Button>
-      </Form>
-      <div className="text-center mt-3">
-        <span className="auth-switch-link" onClick={onSwitch}>¿Ya tienes una cuenta? Inicia Sesión</span>
-      </div>
-    </div>
-  );
-};
-
-// --- Componente Principal de la Página de Autenticación ---
 const AuthPage = () => {
-  const [isLoginView, setIsLoginView] = useState(true);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Cambiamos el nombre de la función para que sea más claro
+  const { login, registerAdmin } = useAuth(); 
+
+  const isLoginPage = location.pathname === '/login';
+
+  // Estados para el usuario
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+
+  // Estado anidado para los datos de la empresa
+  const [businessInfo, setBusinessInfo] = useState({
+    name: '',
+    address: '',
+    phone: ''
+  });
+
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Manejador para los campos de la empresa
+  const handleBusinessChange = (e) => {
+    const { name, value } = e.target;
+    setBusinessInfo(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    setLoading(true);
+
+    if (isLoginPage) {
+      try {
+        await login(email, password);
+        navigate('/');
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Lógica para registrar al Admin y la Empresa
+      if (password !== password2) {
+        setError('Las contraseñas no coinciden.');
+        setLoading(false);
+        return;
+      }
+      try {
+        await registerAdmin(name, email, username, password, password2, businessInfo);
+        setSuccessMessage('¡Sistema configurado con éxito! Serás redirigido al login.');
+        setTimeout(() => navigate('/login'), 3000);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   return (
-    <div className="auth-page-container">
-      <Card className="auth-card">
-        <Card.Body>
-          <div className="auth-header text-center mb-4">
-            <FaWarehouse size={40} className="text-primary" />
-            <h1 className="mt-2">Inventory 360</h1>
-          </div>
-          {isLoginView 
-            ? <LoginForm onSwitch={() => setIsLoginView(false)} /> 
-            : <RegisterForm onSwitch={() => setIsLoginView(true)} />
-          }
-        </Card.Body>
-      </Card>
-    </div>
+    <Container fluid className="py-5 d-flex align-items-center justify-content-center bg-light">
+      <Row>
+        <Col>
+          <Card style={{ width: '28rem' }} className="shadow-lg">
+            <Card.Body className="p-5">
+              <h3 className="text-center mb-4">{isLoginPage ? 'Iniciar Sesión' : 'Configurar Sistema'}</h3>
+              
+              {error && <Alert variant="danger">{error}</Alert>}
+              {successMessage && <Alert variant="success">{successMessage}</Alert>}
+
+              <Form onSubmit={handleSubmit}>
+                {/* --- CAMPOS DE REGISTRO --- */}
+                {!isLoginPage && (
+                  <>
+                    <h5 className="text-muted mb-3 mt-4 fs-6">Datos del Administrador</h5>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Nombre</Form.Label>
+                      <Form.Control type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Usuario</Form.Label>
+                      <Form.Control type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                    </Form.Group>
+                  </>
+                )}
+
+                {/* --- CAMPOS COMUNES --- */}
+                <Form.Group className="mb-3">
+                  <Form.Label>Email</Form.Label>
+                  <Form.Control type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Contraseña</Form.Label>
+                  <Form.Control type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                </Form.Group>
+
+                {/* --- CAMPOS DE REGISTRO (Continuación) --- */}
+                {!isLoginPage && (
+                  <>
+                    <Form.Group className="mb-4">
+                      <Form.Label>Confirmar Contraseña</Form.Label>
+                      <Form.Control type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} required />
+                    </Form.Group>
+
+                    <h5 className="text-muted mb-3 mt-4 fs-6">Datos de la Empresa</h5>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Nombre de la Empresa</Form.Label>
+                      <Form.Control type="text" name="name" value={businessInfo.name} onChange={handleBusinessChange} required />
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Dirección</Form.Label>
+                      <Form.Control as="textarea" rows={2} name="address" value={businessInfo.address} onChange={handleBusinessChange} required />
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Teléfono</Form.Label>
+                      <Form.Control type="text" name="phone" value={businessInfo.phone} onChange={handleBusinessChange} required />
+                    </Form.Group>
+                  </>
+                )}
+
+                <div className="d-grid mt-4">
+                  <Button variant="primary" type="submit" disabled={loading}>
+                    {loading ? <Spinner size="sm" /> : (isLoginPage ? 'Ingresar' : 'Crear y Configurar')}
+                  </Button>
+                </div>
+              </Form>
+
+              <div className="text-center mt-4">
+                {isLoginPage ? "Para configurar el sistema, " : "¿Ya tienes una cuenta? "}
+                <Link to={isLoginPage ? "/register" : "/login"}>
+                  {isLoginPage ? "regístrate aquí." : "Inicia Sesión"}
+                </Link>
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

@@ -1,74 +1,115 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React from 'react';
+import axios from 'axios';
 
-const AuthContext = createContext();
+const AuthContext = React.createContext();
+
+const API_URL = 'http://localhost:8000'; 
 
 export const useAuth = () => {
-  return useContext(AuthContext);
+  return React.useContext(AuthContext);
 };
 
 export const AuthProvider = ({ children }) => {
-  
-  const getInitialState = (key, defaultValue) => {
+  const [currentUser, setCurrentUser] = React.useState(null);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchUserData = async () => {
     try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
+      const response = await axios.get(`${API_URL}/user-control/user/`);
+      setCurrentUser(response.data);
+      setIsAuthenticated(true);
     } catch (error) {
-      return defaultValue;
+      console.error("No se pudieron obtener los datos del usuario.", error);
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        logout();
+      }
     }
   };
 
-  // Añadimos 'username' al usuario hardcodeado
-  const [users, setUsers] = useState(() => getInitialState('users', [
-    { email: 'user@test.com', password: 'password123', name: 'Usuario de Prueba', username: 'testuser' }
-  ]));
-  
-  const [currentUser, setCurrentUser] = useState(() => getInitialState('currentUser', null));
+  React.useEffect(() => {
+    const initializeAuth = async () => {
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+        await fetchUserData();
+      }
+      setLoading(false);
+    };
+    initializeAuth();
+  }, []);
 
-  useEffect(() => {
-    window.localStorage.setItem('users', JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    window.localStorage.setItem('currentUser', JSON.stringify(currentUser));
-  }, [currentUser]);
-
-  // Actualizamos register para que acepte y valide el username
-  const register = (email, password, name, username) => {
-    if (users.find(user => user.email === email)) {
-      throw new Error('El correo electrónico ya está registrado.');
-    }
-    if (users.find(user => user.username === username)) {
-        throw new Error('El nombre de usuario ya existe.');
-    }
-    const newUser = { email, password, name, username };
-    setUsers(prevUsers => [...prevUsers, newUser]);
-  };
-
-  // Actualizamos login para que acepte un 'identifier'
-  const login = (identifier, password) => {
-    // Buscamos si el identifier coincide con un email O con un username
-    const user = users.find(
-      u => (u.email === identifier || u.username === identifier) && u.password === password
-    );
-
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      throw new Error('Credenciales inválidas');
+  const login = async (email, password) => {
+    try {
+      const response = await axios.post(`${API_URL}/user-control/login/`, { email, password });
+      if (response.data.access) {
+        const { access, refresh } = response.data;
+        localStorage.setItem('accessToken', access);
+        localStorage.setItem('refreshToken', refresh);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+        await fetchUserData();
+      }
+    } catch (error) {
+      throw new Error(error.response?.data?.detail || 'Email o contraseña incorrectos.');
     }
   };
 
-  const logout = () => {
-    setCurrentUser(null);
+  const registerAdmin = async (name, email, username, password, password2, business) => {
+    try {
+      await axios.post(`${API_URL}/user-control/register-admin/`, {
+        name, email, username, password, password2, business
+      });
+    } catch (error) {
+      const errorData = error.response?.data;
+      let errorMessage = 'Error al configurar el sistema.';
+      if (errorData) {
+        const messages = Object.values(errorData).flat().join(' ');
+        if (messages) errorMessage = messages;
+      }
+      throw new Error(errorMessage);
+    }
+  };
+
+  const logout = async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    try {
+      if (refreshToken) {
+        await axios.post(`${API_URL}/user-control/logout/`, { refresh: refreshToken });
+      }
+    } catch (error) {
+      console.error("Error al cerrar sesión en el backend:", error);
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      delete axios.defaults.headers.common['Authorization'];
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      await axios.delete(`${API_URL}/user-control/user/delete/`);
+      logout();
+    } catch (error) {
+      console.error("Error al eliminar la cuenta:", error.response?.data);
+      throw new Error(error.response?.data?.detail || 'No se pudo eliminar la cuenta.');
+    }
   };
 
   const value = {
     currentUser,
-    isAuthenticated: !!currentUser,
+    isAuthenticated,
+    loading,
     login,
+    registerAdmin,
     logout,
-    register,
+    deleteAccount,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 };

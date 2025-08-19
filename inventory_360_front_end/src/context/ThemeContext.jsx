@@ -7,12 +7,12 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  // El tema por defecto será 'light'. Intentamos leer la preferencia del usuario.
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+  // El tema por defecto será el que esté guardado, o 'light' si no hay nada.
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
-    document.body.className = '';
-    document.body.classList.add(`${theme}-theme`);
+    // Cada vez que el tema cambie, lo aplicamos al body y lo guardamos.
+    document.body.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
@@ -25,5 +25,9 @@ export const ThemeProvider = ({ children }) => {
     toggleTheme,
   };
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      {children}
+    </ThemeContext.Provider>
+  );
 };

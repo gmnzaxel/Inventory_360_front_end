@@ -1,18 +1,19 @@
 .sidebar {
   height: 100vh;
-  width: 260px;
   color: white;
-  background-color: #212529;
-  position: fixed;
-  left: 0;
-  top: 0;
+  background-color: var(--sidebar-bg) !important; /* Usamos la variable de tema */
   transition: width 0.3s ease;
-  z-index: 1030;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar.collapsed { 
   width: 80px; 
+}
+
+.sidebar:not(.collapsed) {
+  width: 260px;
 }
 
 .sidebar.collapsed .sidebar-header span,
@@ -46,7 +47,7 @@
 }
 
 .sidebar .nav-link {
-  color: #adb5bd;
+  color: var(--sidebar-text); /* Usamos la variable de tema */
   padding: 0.6rem 1.5rem;
   font-size: 0.95rem;
   display: flex;
@@ -71,7 +72,6 @@
   text-align: center;
 }
 
-/* --- REGLAS CORREGIDAS Y SIMPLIFICADAS PARA EL CENTRADO --- */
 .sidebar.collapsed .sidebar-header,
 .sidebar.collapsed .nav-link { 
   justify-content: center;

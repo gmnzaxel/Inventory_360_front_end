@@ -4,8 +4,6 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import AuthPage from './components/AuthPage';
 import ProtectedRoute from './components/ProtectedRoute';
-
-// Importamos las páginas
 import Dashboard from './components/Dashboard';
 import ProductsPage from './pages/ProductsPage';
 import MovementsPage from './pages/MovementsPage';
@@ -14,8 +12,9 @@ import StockPage from './pages/StockPage';
 import SalesPage from './pages/SalesPage';
 import PurchasesPage from './pages/PurchasesPage';
 import RolesPage from './pages/RolesPage';
-
 import './App.css';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 
 const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => (
   <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -37,6 +36,8 @@ const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => (
           <Route path="/purchases" element={<PurchasesPage />} />
           <Route path="/roles" element={<RolesPage />} />
           <Route path="*" element={<Navigate to="/" />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
     </div>
