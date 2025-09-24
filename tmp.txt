@@ -1,7 +1,6 @@
 import React from 'react';
 import { Nav, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { NavLink, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { NavLink } from 'react-router-dom';
 import { 
   FaTachometerAlt, FaBox, FaExchangeAlt, FaShoppingCart, 
   FaHandHoldingUsd, FaWarehouse, FaBoxes, FaUserShield, FaTruck, FaTag, FaTruckLoading
@@ -26,10 +25,9 @@ const NavItem = ({ to, icon, text, isSidebarOpen }) => {
 };
 
 const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
-  const { currentUser } = useAuth();
   const menuSections = [
     {
-      title: "Gestion",
+      title: "Gestión",
       items: [
         { to: "/", icon: <FaTachometerAlt className="nav-icon" />, text: "Dashboard" },
         { to: "/products", icon: <FaBox className="nav-icon" />, text: "Productos" },
@@ -48,28 +46,18 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
       title: "Estructura",
       items: [
         { to: "/branches", icon: <FaWarehouse className="nav-icon" />, text: "Sucursales" },
-        { to: "/categories", icon: <FaTag className="nav-icon" />, text: "Categorias" },
+        { to: "/categories", icon: <FaTag className="nav-icon" />, text: "Categorías" },
         { to: "/stock", icon: <FaBoxes className="nav-icon" />, text: "Stock" },
         { to: "/suppliers", icon: <FaTruck className="nav-icon" />, text: "Proveedores" },
       ]
     },
     {
-      title: "Administracion",
+      title: "Administración",
       items: [
-        { to: "/roles", icon: <FaUserShield className="nav-icon" />, text: "Gestion de Roles" },
+        { to: "/roles", icon: <FaUserShield className="nav-icon" />, text: "Gestión de Roles" },
       ]
     }
   ];
-
-  // Ocultar entradas de administracion a usuarios no administradores
-  const visibleSections = (currentUser?.role === 'admin')
-    ? menuSections
-    : menuSections
-        .map(section => ({
-          ...section,
-          items: section.items.filter(i => i.to !== '/roles')
-        }))
-        .filter(section => section.items.length > 0);
 
   return (
     <div 
@@ -78,12 +66,12 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
       onMouseLeave={handleMouseLeave}
     >
       <div>
-        <Link to="/" className="sidebar-header text-decoration-none">
+        <div className="sidebar-header">
           <FaWarehouse className="nav-icon" />
           <span>Inventory 360</span>
-        </Link>
+        </div>
         <Nav className="flex-column">
-          {visibleSections.map((section, index) => (
+          {menuSections.map((section, index) => (
             <div key={index} className="sidebar-section">
               <small className="sidebar-section-title">{section.title}</small>
               {section.items.map((item) => (

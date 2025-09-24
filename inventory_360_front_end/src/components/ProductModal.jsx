@@ -1,63 +1,96 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
+import api from '../api/client';
+import { formatApiError } from '../utils/errors';
+import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
+import { CONTROL_PREFIX } from '../config/api';
+import { normalizeApiList } from '../utils/apiHelpers';
 
-const API_URL = 'http://localhost:8000/api/control';
+const emptyForm = {
+  name: '',
+  description: '',
+  price: '',
+  category_id: '',
+  minimum_stock_input: 10,
+};
 
 const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-  });
-
+  const [formData, setFormData] = useState({ ...emptyForm });
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const isEditMode = !!productToEdit;
+  const isEditMode = Boolean(productToEdit);
 
   useEffect(() => {
-    if (show && isEditMode) {
-      setFormData({
-        name: productToEdit.name,
-        description: productToEdit.description,
-        price: productToEdit.price,
-      });
-    }
-  }, [show, productToEdit, isEditMode]);
+    const loadCategories = async () => {
+      try {
+        const response = await api.get(`${CONTROL_PREFIX}/categories/`);
+        setCategories(normalizeApiList(response.data));
+      } catch (err) {
+        console.error('No se pudieron cargar las categorias', err);
+        setCategories([]);
+      }
+    };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (show) {
+      loadCategories();
+      if (isEditMode) {
+        setFormData({
+          name: productToEdit.name || '',
+          description: productToEdit.description || '',
+          price: productToEdit.price ?? '',
+          category_id: productToEdit.category?.id ?? '',
+          minimum_stock_input: productToEdit.minimum_stock ?? 10,
+        });
+      } else {
+        setFormData({ ...emptyForm });
+      }
+    }
+  }, [show, isEditMode, productToEdit]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
 
+    const payload = {
+      ...formData,
+      price: formData.price !== '' ? Number(formData.price) : '',
+      minimum_stock_input: Number(formData.minimum_stock_input),
+      category_id: formData.category_id ? Number(formData.category_id) : null,
+    };
+
+    if (!payload.category_id) {
+      payload.category_id = null;
+    }
+
     try {
       if (isEditMode) {
-        await axios.put(`${API_URL}/products/${productToEdit.id}/`, formData);
+        await api.put(`${CONTROL_PREFIX}/products/${productToEdit.id}/`, payload);
       } else {
-        await axios.post(`${API_URL}/products/`, formData);
+        await api.post(`${CONTROL_PREFIX}/products/`, payload);
       }
       onSuccess();
       handleClose();
     } catch (err) {
-      const errorMessage = err.response?.data ? Object.values(err.response.data).flat().join(' ') : 'Ocurrió un error.';
-      setError(errorMessage);
+      setError(formatApiError(err, 'Ocurrio un error.'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleExited = () => {
-    setFormData({ name: '', description: '', price: '' });
+    setFormData({ ...emptyForm });
     setError('');
+    setCategories([]);
   };
 
-  const title = isEditMode ? 'Editar Producto' : 'Añadir Nuevo Producto';
+  const title = isEditMode ? 'Editar Producto' : 'Anadir Nuevo Producto';
 
   return (
     <Modal show={show} onHide={handleClose} centered onExited={handleExited}>
@@ -69,19 +102,69 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
           {error && <Alert variant="danger">{error}</Alert>}
           <Form.Group className="mb-3">
             <Form.Label>Nombre del Producto</Form.Label>
-            <Form.Control type="text" name="name" value={formData.name} onChange={handleChange} required />
+            <Form.Control
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+            />
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Descripción</Form.Label>
-            <Form.Control as="textarea" rows={3} name="description" value={formData.description} onChange={handleChange} />
+            <Form.Label>Categoria</Form.Label>
+            <Form.Select name="category_id" value={formData.category_id} onChange={handleChange}>
+              <option value="">Selecciona una categoria</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Precio</Form.Label>
-            <Form.Control type="number" name="price" value={formData.price} onChange={handleChange} step="0.01" min="0" required />
+            <Form.Label>Descripcion</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+            />
           </Form.Group>
+          <Row>
+            <Col>
+              <Form.Group className="mb-3">
+                <Form.Label>Precio</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  required
+                />
+              </Form.Group>
+            </Col>
+            <Col>
+              <Form.Group className="mb-3">
+                <Form.Label>Stock Minimo</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="minimum_stock_input"
+                  value={formData.minimum_stock_input}
+                  onChange={handleChange}
+                  min="0"
+                  required
+                />
+              </Form.Group>
+            </Col>
+          </Row>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
+          <Button variant="secondary" onClick={handleClose}>
+            Cancelar
+          </Button>
           <Button variant="primary" type="submit" disabled={loading}>
             {loading ? <Spinner as="span" size="sm" /> : 'Guardar Cambios'}
           </Button>

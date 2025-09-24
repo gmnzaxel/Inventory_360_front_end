@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/client';
+import { formatApiError } from '../utils/errors';
+import { extractListAndCount } from '../utils/apiHelpers';
 import { useAuth } from '../context/AuthContext';
 import { Container, Row, Col, Card, Button, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash, FaTruck, FaUserTie, FaPhone, FaEnvelope } from 'react-icons/fa';
-
-const API_URL = 'http://localhost:8000/api/control';
+import { CONTROL_PREFIX } from '../config/api';
 
 const SuppliersPage = () => {
   const { currentUser } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -23,12 +27,15 @@ const SuppliersPage = () => {
   const isAdmin = currentUser?.role === 'admin';
 
   const fetchSuppliers = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const response = await axios.get(`${API_URL}/suppliers/`);
-      setSuppliers(response.data);
+      const response = await api.get(`${CONTROL_PREFIX}/suppliers/`, { params: { page, page_size: pageSize } });
+      const { items, count } = extractListAndCount(response.data);
+      setSuppliers(items);
+      setTotalCount(count);
     } catch (err) {
-      setError('No se pudieron cargar los proveedores.');
-      console.error(err);
+      setError(formatApiError(err, 'No se pudieron cargar los proveedores.'));
     } finally {
       setLoading(false);
     }
@@ -36,7 +43,7 @@ const SuppliersPage = () => {
 
   useEffect(() => {
     fetchSuppliers();
-  }, []);
+  }, [page, pageSize]);
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -67,9 +74,9 @@ const SuppliersPage = () => {
     setModalError('');
     try {
       if (isEditMode) {
-        await axios.put(`${API_URL}/suppliers/${currentSupplier.id}/`, currentSupplier);
+        await api.put(`${CONTROL_PREFIX}/suppliers/${currentSupplier.id}/`, currentSupplier);
       } else {
-        await axios.post(`${API_URL}/suppliers/`, currentSupplier);
+        await api.post(`${CONTROL_PREFIX}/suppliers/`, currentSupplier);
       }
       fetchSuppliers();
       handleCloseModal();
@@ -92,7 +99,7 @@ const SuppliersPage = () => {
   const handleDelete = async () => {
     if (!supplierToDelete) return;
     try {
-      await axios.delete(`${API_URL}/suppliers/${supplierToDelete.id}/`);
+      await api.delete(`${CONTROL_PREFIX}/suppliers/${supplierToDelete.id}/`);
       closeDeleteModal();
       fetchSuppliers();
     } catch (err) {
@@ -106,8 +113,8 @@ const SuppliersPage = () => {
     if (error) return <Col><Alert variant="danger">{error}</Alert></Col>;
     if (suppliers.length === 0) return <Col className="text-center py-5"><p>No hay proveedores para mostrar.</p></Col>;
 
-    return suppliers.map(supplier => (
-      <Col key={supplier.id} md={6} lg={4} className="mb-4">
+    return suppliers.map((supplier, index) => (
+      <Col key={supplier.id} md={6} lg={4} className="mb-4 animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
         <Card className="h-100 shadow-sm">
           <Card.Body>
             <Card.Title className="fw-bold d-flex align-items-center"><FaTruck className="me-2"/>{supplier.name}</Card.Title>
@@ -130,21 +137,19 @@ const SuppliersPage = () => {
 
   return (
     <>
-      <Container fluid>
-        <Row className="align-items-center mb-4">
+      <Container fluid className="page-container">
+        <Row className="align-items-center mb-4 animated-header">
           <Col>
-            <h2 className="h4 mb-0">Gestión de Proveedores</h2>
+            <h2 className="h4 mb-0">Gestion de Proveedores</h2>
           </Col>
           {isAdmin && (
             <Col xs="auto">
-              <Button variant="primary" onClick={handleShowCreateModal}>
-                <FaPlus className="me-2" />Añadir Proveedor
-              </Button>
+              <Button variant="primary" onClick={handleShowCreateModal}><FaPlus className="me-2" />Anadir Proveedor</Button>
             </Col>
           )}
         </Row>
         <Row>{renderContent()}</Row>
-      </Container>
+              </Container>
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
@@ -162,7 +167,7 @@ const SuppliersPage = () => {
               <Form.Control type="text" name="contact_person" value={currentSupplier.contact_person} onChange={handleInputChange} />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Teléfono</Form.Label>
+              <Form.Label>Telefono</Form.Label>
               <Form.Control type="text" name="phone" value={currentSupplier.phone} onChange={handleInputChange} />
             </Form.Group>
             <Form.Group>
@@ -179,10 +184,10 @@ const SuppliersPage = () => {
 
       <Modal show={showDeleteModal} onHide={closeDeleteModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
+          <Modal.Title>Confirmar Eliminacion</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          ¿Estás seguro de que quieres eliminar al proveedor <strong>{supplierToDelete?.name}</strong>? Esta acción no se puede deshacer.
+          Estas seguro de que quieres eliminar al proveedor <strong>{supplierToDelete?.name}</strong>? Esta accion no se puede deshacer.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={closeDeleteModal}>Cancelar</Button>
@@ -194,3 +199,10 @@ const SuppliersPage = () => {
 };
 
 export default SuppliersPage;
+
+
+
+
+
+
+

@@ -16,9 +16,8 @@ const Header = () => {
   };
 
   return (
-    <Navbar className="header px-4" expand="lg">
-      <Navbar.Toggle aria-controls="basic-navbar-nav" />
-      <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
+    <Navbar className="header px-4">
+      <div className="ms-auto d-flex align-items-center">
         <Nav>
           {currentUser && (
             <Dropdown align="end">
@@ -29,13 +28,13 @@ const Header = () => {
                 <span className="d-none d-sm-inline">{currentUser.name}</span>
               </Dropdown.Toggle>
 
-              <Dropdown.Menu>
+              <Dropdown.Menu align="end">
                 <div className="px-3 py-2">
                   <div className="fw-bold">{currentUser.name}</div>
                   <div className="text-muted small">{currentUser.email}</div>
                 </div>
                 <Dropdown.Divider />
-                {/* --- CORRECCIÓN AQUÍ --- */}
+                {/* --- CORRECCION AQUI --- */}
                 <Dropdown.Item as={Link} to="/profile">
                   <FaUser className="me-2" /> Perfil
                 </Dropdown.Item>
@@ -48,15 +47,16 @@ const Header = () => {
                 </Dropdown.Item>
                 <Dropdown.Divider />
                 <Dropdown.Item onClick={handleLogout} className="text-danger">
-                  <FaSignOutAlt className="me-2" /> Cerrar Sesión
+                  <FaSignOutAlt className="me-2" /> Cerrar Sesion
                 </Dropdown.Item>
               </Dropdown.Menu>
             </Dropdown>
           )}
         </Nav>
-      </Navbar.Collapse>
+      </div>
     </Navbar>
   );
 };
 
 export default Header;
+

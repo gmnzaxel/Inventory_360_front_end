@@ -1,148 +1,274 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Container, Row, Col, Card, Button, Table, Form, InputGroup, Badge, Spinner, Alert } from 'react-bootstrap';
-import { FaSearch, FaSave, FaUserShield } from 'react-icons/fa';
-
-const API_URL = 'http://localhost:8000/user-control';
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { Container, Row, Col, Card, Button, Table, Form, InputGroup, Badge, Spinner, Alert, Modal, Toast, ToastContainer } from 'react-bootstrap';
+import { FaSearch, FaSave, FaPlus } from 'react-icons/fa';
+import { USER_PREFIX } from '../config/api';
 
 const RolesPage = () => {
+  const { currentUser } = useAuth();
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        // Hacemos la petición GET al nuevo endpoint de usuarios
-        const response = await axios.get(`${API_URL}/users/`);
-        setUsers(response.data);
-      } catch (err) {
-        setError('No se pudo cargar la lista de usuarios.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [searchTerm, setSearchTerm] = useState('');
+  const [savingId, setSavingId] = useState(null);
+  const [toast, setToast] = useState({ show: false, variant: 'success', message: '' });
 
-    fetchUsers();
-  }, []);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: '', email: '', password: '', password2: '', role: 'user',
+    can_purchase: false, can_sale: false, can_adjust: false, can_transfer: false,
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [modalError, setModalError] = useState('');
 
-  // Función para manejar el cambio de rol en el estado local
+  const [pwdUser, setPwdUser] = useState(null);
+  const [pwd1, setPwd1] = useState('');
+  const [pwd2, setPwd2] = useState('');
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const resp = await api.get(`${USER_PREFIX}/users/`);
+      const data = resp.data;
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      const others = currentUser ? list.filter(u => u.id !== currentUser.id) : list;
+      setUsers(others);
+      setError(null);
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 401) setError('Tu sesion ha expirado. Inicia sesion nuevamente.');
+      else if (status === 403) setError('Necesitas permisos de administrador para ver y gestionar usuarios.');
+      else setError('No se pudo cargar la lista de usuarios.');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const getRoleVariant = (role) => (role === 'admin' ? 'danger' : 'secondary');
+
   const handleRoleChange = (userId, newRole) => {
-    setUsers(users.map(user => 
-      user.id === userId ? { ...user, role: newRole } : user
-    ));
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
   };
 
-  const getRoleVariant = (role) => {
-    switch (role) {
-      case 'admin': return 'danger';
-      case 'empleado': return 'secondary';
-      default: return 'light';
+  const handlePermissionToggle = (userId, field) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, [field]: !u[field] } : u));
+  };
+
+  const handleSaveUser = async (userId) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    // Evitar dejar a la empresa sin administrador
+    if (user.role !== 'admin') {
+      const adminCount = (currentUser?.role === 'admin' ? 1 : 0) + users.filter(u => u.role === 'admin' && u.id !== userId).length;
+      if (adminCount <= 0) {
+        setToast({ show: true, variant: 'danger', message: 'No puedes quitar el ultimo administrador.' });
+        return;
+      }
+    }
+    setSavingId(userId);
+    try {
+      const payload = {
+        role: user.role,
+        can_purchase: !!user.can_purchase,
+        can_sale: !!user.can_sale,
+        can_adjust: !!user.can_adjust,
+        can_transfer: !!user.can_transfer,
+      };
+      await api.patch(`${USER_PREFIX}/users/${userId}/`, payload);
+      setToast({ show: true, variant: 'success', message: 'Cambios guardados correctamente.' });
+    } catch (_) {
+      setError('No se pudo guardar los cambios del usuario.');
+      setToast({ show: true, variant: 'danger', message: 'Error al guardar cambios.' });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const openPasswordModal = (user) => { setPwdUser(user); setPwd1(''); setPwd2(''); setModalError(''); };
+  const closePasswordModal = () => { setPwdUser(null); setPwd1(''); setPwd2(''); setModalError(''); };
+  const handleSetPassword = async () => {
+    setModalError('');
+    if (!pwd1 || pwd1.length < 8) { setModalError('La contrasena debe tener al menos 8 caracteres.'); return; }
+    if (pwd1 !== pwd2) { setModalError('Las contrasenas no coinciden.'); return; }
+    try {
+      await api.post(`${USER_PREFIX}/users/${pwdUser.id}/set-password/`, { password: pwd1, password2: pwd2 });
+      setToast({ show: true, variant: 'success', message: 'Contrasena actualizada.' });
+      closePasswordModal();
+    } catch (_) {
+      setModalError('No se pudo actualizar la contrasena.');
+    }
+  };
+
+  const handleShowCreateModal = () => setShowCreateModal(true);
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setNewUser({ name: '', email: '', password: '', password2: '', role: 'user', can_purchase: false, can_sale: false, can_adjust: false, can_transfer: false });
+    setFormErrors({});
+    setModalError('');
+  };
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewUser(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: null }));
+  };
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    const errors = {};
+    const name = newUser.name.trim();
+    const email = newUser.email.trim();
+    const pwd = newUser.password;
+    const pwd2 = newUser.password2;
+    if (!name) errors.name = 'El nombre es requerido.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'El email no tiene un formato valido.';
+    if (pwd.length < 8) errors.password = 'La contrasena debe tener al menos 8 caracteres.';
+    if (pwd !== pwd2) errors.password2 = 'Las contrasenas no coinciden.';
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    try {
+      await api.post(`${USER_PREFIX}/users/`, newUser);
+      setToast({ show: true, variant: 'success', message: 'Usuario creado correctamente.' });
+      handleCloseCreateModal();
+      fetchUsers();
+    } catch (err) {
+      setModalError('No se pudo crear el usuario.');
     }
   };
 
   const renderTableContent = () => {
-    if (loading) {
-      return (
-        <tr>
-          <td colSpan="4" className="text-center py-5">
-            <Spinner animation="border" />
-            <p className="mt-2 mb-0">Cargando usuarios...</p>
-          </td>
-        </tr>
-      );
-    }
-
-    if (error) {
-      return (
-        <tr>
-          <td colSpan="4">
-            <Alert variant="danger" className="m-3">{error}</Alert>
-          </td>
-        </tr>
-      );
-    }
-
-    if (users.length === 0) {
-      return (
-        <tr>
-          <td colSpan="4" className="text-center py-5">
-            No hay usuarios para mostrar.
-          </td>
-        </tr>
-      );
-    }
-
-    return users.map(user => (
-      <tr key={user.id}>
+    if (loading) return <tr><td colSpan="5" className="text-center py-5"><Spinner /></td></tr>;
+    if (error) return <tr><td colSpan="5"><Alert variant="danger" className="m-3">{error}</Alert></td></tr>;
+    const term = searchTerm.trim().toLowerCase();
+    const filtered = term ? users.filter(u => `${u.name} ${u.email}`.toLowerCase().includes(term)) : users;
+    if (filtered.length === 0) return <tr><td colSpan="5" className="text-center py-5">No se encontraron usuarios.</td></tr>;
+    return filtered.map((user, index) => (
+      <tr key={user.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
         <td className="ps-3">
           <div className="fw-bold">{user.name}</div>
           <div className="text-muted small">{user.email}</div>
         </td>
         <td className="text-center align-middle">
-          <Badge pill bg={getRoleVariant(user.role)}>
-            {user.role}
-          </Badge>
+          <Badge pill bg={getRoleVariant(user.role)}>{user.role}</Badge>
         </td>
         <td className="align-middle" style={{ minWidth: '200px' }}>
-          <Form.Select 
-            size="sm"
-            value={user.role}
-            onChange={(e) => handleRoleChange(user.id, e.target.value)}
-          >
+          <Form.Select size="sm" value={user.role} onChange={(e) => handleRoleChange(user.id, e.target.value)}>
             <option value="admin">Admin</option>
-            <option value="empleado">Empleado</option>
+            <option value="user">User</option>
           </Form.Select>
         </td>
+        <td className="align-middle" style={{ minWidth: '260px' }}>
+          <div className="d-flex flex-wrap gap-2">
+            <Form.Check type="switch" id={`sale-${user.id}`} label="Ventas" checked={!!user.can_sale} onChange={() => handlePermissionToggle(user.id, 'can_sale')} />
+            <Form.Check type="switch" id={`purchase-${user.id}`} label="Compras" checked={!!user.can_purchase} onChange={() => handlePermissionToggle(user.id, 'can_purchase')} />
+            <Form.Check type="switch" id={`transfer-${user.id}`} label="Transfer" checked={!!user.can_transfer} onChange={() => handlePermissionToggle(user.id, 'can_transfer')} />
+            <Form.Check type="switch" id={`adjust-${user.id}`} label="Ajustes" checked={!!user.can_adjust} onChange={() => handlePermissionToggle(user.id, 'can_adjust')} />
+          </div>
+        </td>
         <td className="text-center align-middle">
-          <Button variant="outline-success" size="sm">
-            <FaSave className="me-1" /> Guardar
+          <Button variant="outline-success" size="sm" disabled={savingId === user.id} onClick={() => handleSaveUser(user.id)}>
+            {savingId === user.id ? (<Spinner as="span" size="sm" />) : (<><FaSave className="me-1" /> Guardar</>)}
           </Button>
+          {user.role !== 'admin' && (
+            <Button variant="outline-secondary" size="sm" className="ms-2" onClick={() => openPasswordModal(user)}>
+              Cambiar contrasena
+            </Button>
+          )}
         </td>
       </tr>
     ));
   };
 
   return (
-    <Container fluid>
-      <Row className="align-items-center mb-4">
-        <Col>
-          <h2 className="h4 mb-0">
-            <FaUserShield className="me-2" />
-            Gestión de Roles de Empleados
-          </h2>
-        </Col>
-      </Row>
+    <>
+      <Container fluid className="page-container">
+        <Row className="align-items-center mb-4 animated-header">
+          <Col><h2 className="h4 mb-0">Gestion de Roles y Empleados</h2></Col>
+          {currentUser?.role === 'admin' && (
+            <Col xs="auto"><Button variant="primary" onClick={handleShowCreateModal}><FaPlus className="me-2" />Anadir Empleado</Button></Col>
+          )}
+        </Row>
+        <Card className="shadow-sm animated-card">
+          <Card.Header className="p-3">
+            <Col md={6} lg={4}>
+              <InputGroup>
+                <InputGroup.Text><FaSearch /></InputGroup.Text>
+                <Form.Control placeholder="Buscar por nombre o email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              </InputGroup>
+            </Col>
+          </Card.Header>
+          <Card.Body className="p-0">
+            <Table responsive hover className="mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th className="py-3 ps-3">Empleado</th>
+                  <th className="text-center">Rol Actual</th>
+                  <th>Cambiar Rol</th>
+                  <th>Permisos</th>
+                  <th className="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>{renderTableContent()}</tbody>
+            </Table>
+          </Card.Body>
+        </Card>
+      </Container>
 
-      <Card className="shadow-sm">
-        <Card.Header className="p-3">
-          <Col md={6} lg={4}>
-            <InputGroup>
-              <InputGroup.Text><FaSearch /></InputGroup.Text>
-              <Form.Control placeholder="Buscar por nombre o email..." />
-            </InputGroup>
-          </Col>
-        </Card.Header>
+      {/* Crear/editar usuario */}
+      <Modal show={showCreateModal} onHide={handleCloseCreateModal} centered>
+        <Modal.Header closeButton><Modal.Title>Anadir Nuevo Empleado</Modal.Title></Modal.Header>
+        <Form noValidate onSubmit={handleCreateUser}>
+          <Modal.Body>
+            {modalError && <Alert variant="danger">{modalError}</Alert>}
+            <Form.Group className="mb-3"><Form.Label>Nombre Completo</Form.Label><Form.Control type="text" name="name" value={newUser.name} onChange={handleInputChange} isInvalid={!!formErrors.name} required /><Form.Control.Feedback type="invalid">{formErrors.name}</Form.Control.Feedback></Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Email</Form.Label><Form.Control type="email" name="email" value={newUser.email} onChange={handleInputChange} isInvalid={!!formErrors.email} required /><Form.Control.Feedback type="invalid">{formErrors.email}</Form.Control.Feedback></Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Contrasena</Form.Label><Form.Control type="password" name="password" value={newUser.password} onChange={handleInputChange} isInvalid={!!formErrors.password} required /><Form.Control.Feedback type="invalid">{formErrors.password}</Form.Control.Feedback></Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Confirmar Contrasena</Form.Label><Form.Control type="password" name="password2" value={newUser.password2} onChange={handleInputChange} isInvalid={!!formErrors.password2} required /><Form.Control.Feedback type="invalid">{formErrors.password2}</Form.Control.Feedback></Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Rol</Form.Label><Form.Select name="role" value={newUser.role} onChange={handleInputChange}><option value="user">Empleado</option><option value="admin">Administrador</option></Form.Select></Form.Group>
+            <hr />
+            <Form.Label className="fw-bold">Permisos de Operaciones</Form.Label>
+            <Form.Group className="mb-2"><Form.Check type="checkbox" name="can_sale" label="Puede realizar Ventas" checked={newUser.can_sale} onChange={handleInputChange} /></Form.Group>
+            <Form.Group className="mb-2"><Form.Check type="checkbox" name="can_purchase" label="Puede realizar Compras" checked={newUser.can_purchase} onChange={handleInputChange} /></Form.Group>
+            <Form.Group className="mb-2"><Form.Check type="checkbox" name="can_transfer" label="Puede realizar Transferencias" checked={newUser.can_transfer} onChange={handleInputChange} /></Form.Group>
+            <Form.Group><Form.Check type="checkbox" name="can_adjust" label="Puede realizar Ajustes de Stock" checked={newUser.can_adjust} onChange={handleInputChange} /></Form.Group>
+          </Modal.Body>
+          <Modal.Footer><Button variant="secondary" onClick={handleCloseCreateModal}>Cancelar</Button><Button variant="primary" type="submit">Crear Usuario</Button></Modal.Footer>
+        </Form>
+      </Modal>
 
-        <Card.Body className="p-0">
-          <Table responsive hover className="mb-0">
-            <thead className="table-light">
-              <tr>
-                <th className="py-3 ps-3">Empleado</th>
-                <th className="text-center">Rol Actual</th>
-                <th>Cambiar Rol</th>
-                <th className="text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {renderTableContent()}
-            </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
-    </Container>
+      {/* Cambiar contrasena */}
+      <Modal show={!!pwdUser} onHide={closePasswordModal} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Cambiar contrasena</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {modalError && <Alert variant="danger">{modalError}</Alert>}
+          <Form.Group className="mb-3">
+            <Form.Label>Nueva contrasena</Form.Label>
+            <Form.Control type="password" value={pwd1} onChange={(e) => setPwd1(e.target.value)} required />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Confirmar contrasena</Form.Label>
+            <Form.Control type="password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} required />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={closePasswordModal}>Cancelar</Button>
+          <Button variant="primary" onClick={handleSetPassword}>Guardar</Button>
+        </Modal.Footer>
+      </Modal>
+
+      <ToastContainer position="bottom-end" className="p-3">
+        <Toast bg={toast.variant} onClose={() => setToast({ ...toast, show: false })} show={toast.show} delay={2500} autohide>
+          <Toast.Body className="text-white">{toast.message}</Toast.Body>
+        </Toast>
+      </ToastContainer>
+    </>
   );
 };
 
 export default RolesPage;
+

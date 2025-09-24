@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Badge, ListGroup } from 'react-bootstrap';
-import { FaBox, FaStore, FaTruck, FaUser, FaCalendarAlt, FaFileInvoice } from 'react-icons/fa';
+import { FaBox, FaStore, FaTruck, FaUser, FaCalendarAlt } from 'react-icons/fa';
 
 const MovementDetailModal = ({ show, handleClose, movement }) => {
   if (!movement) return null;
@@ -42,6 +42,12 @@ const MovementDetailModal = ({ show, handleClose, movement }) => {
                 <div className="fw-bold"><FaStore className="me-2"/>Sucursal</div>
                 {movement.branch?.name}
               </ListGroup.Item>
+              {movement.branch_from && (
+                <ListGroup.Item>
+                  <div className="fw-bold"><FaTruck className="me-2"/>Desde (Origen)</div>
+                  {movement.branch_from.name}
+                </ListGroup.Item>
+              )}
               {movement.supplier && (
                 <ListGroup.Item>
                   <div className="fw-bold"><FaTruck className="me-2"/>Proveedor</div>
@@ -60,10 +66,7 @@ const MovementDetailModal = ({ show, handleClose, movement }) => {
                 <div className="fw-bold"><FaCalendarAlt className="me-2"/>Fecha</div>
                 {new Date(movement.date).toLocaleDateString()}
               </ListGroup.Item>
-              <ListGroup.Item>
-                <div className="fw-bold"><FaFileInvoice className="me-2"/>Documento</div>
-                {movement.document?.document_number || 'Sin documento asociado'}
-              </ListGroup.Item>
+
             </ListGroup>
           </Col>
         </Row>
@@ -93,3 +96,4 @@ const MovementDetailModal = ({ show, handleClose, movement }) => {
 };
 
 export default MovementDetailModal;
+

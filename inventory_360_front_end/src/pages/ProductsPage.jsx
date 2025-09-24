@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Container, Row, Col, Card, Button, Form, InputGroup, Table, Badge, Image, Spinner, Alert, Modal } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '../api/client';
+import { formatApiError } from '../utils/errors';
+import { extractListAndCount } from '../utils/apiHelpers';
+import { Container, Row, Col, Card, Button, Form, InputGroup, Table, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
 import { FaPlus, FaSearch, FaEdit, FaTrash } from 'react-icons/fa';
 import ProductModal from '../components/ProductModal';
-
-const API_URL = 'http://localhost:8000/api/control';
+import { CONTROL_PREFIX } from '../config/api';
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,20 +19,25 @@ const ProductsPage = () => {
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const response = await axios.get(`${API_URL}/products/`, {
-        params: { search: searchTerm }
+      const response = await api.get(`${CONTROL_PREFIX}/products/`, {
+        params: { search: searchTerm, page, page_size: pageSize }
       });
-      setProducts(response.data);
+      const { items, count } = extractListAndCount(response.data);
+      setProducts(items);
+      setTotalCount(count);
     } catch (err) {
-      setError('No se pudieron cargar los productos.');
-      console.error(err);
+      setError(formatApiError(err, 'No se pudieron cargar los productos.'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, page, pageSize]);
 
   useEffect(() => {
     setLoading(true);
@@ -41,7 +48,7 @@ const ProductsPage = () => {
     return () => {
       clearTimeout(timerId);
     };
-  }, [searchTerm]);
+  }, [fetchProducts]);
 
   const handleSuccess = () => {
     fetchProducts();
@@ -65,7 +72,7 @@ const ProductsPage = () => {
   const handleDelete = async () => {
     if (!productToDelete) return;
     try {
-      await axios.delete(`${API_URL}/products/${productToDelete.id}/`);
+      await api.delete(`${CONTROL_PREFIX}/products/${productToDelete.id}/`);
       closeDeleteModal();
       fetchProducts();
     } catch (err) {
@@ -78,7 +85,7 @@ const ProductsPage = () => {
     if (loading) {
       return (
         <tr>
-          <td colSpan="5" className="text-center py-5">
+          <td colSpan="6" className="text-center py-5">
             <Spinner animation="border" />
           </td>
         </tr>
@@ -88,7 +95,7 @@ const ProductsPage = () => {
     if (error) {
       return (
         <tr>
-          <td colSpan="5">
+          <td colSpan="6">
             <Alert variant="danger" className="m-3">{error}</Alert>
           </td>
         </tr>
@@ -98,55 +105,61 @@ const ProductsPage = () => {
     if (products.length === 0) {
       return (
         <tr>
-          <td colSpan="5" className="text-center py-5">
+          <td colSpan="6" className="text-center py-5">
             {searchTerm ? `No se encontraron productos para "${searchTerm}"` : 'No hay productos para mostrar.'}
           </td>
         </tr>
       );
     }
 
-    return products.map(product => (
-      <tr key={product.id}>
-        <td className="ps-3">
-          <div className="d-flex align-items-center">
-            <Image src={'https://placehold.co/60x60/secondary/white?text=P'} roundedCircle className="me-3" />
-            <span className="fw-bold">{product.name}</span>
-          </div>
-        </td>
-        <td>{product.category?.name || 'Sin categoría'}</td>
-        <td className="text-end">${parseFloat(product.price).toFixed(2)}</td>
-        <td className="text-center">
-          <Badge pill bg={product.stock > 0 ? 'success' : 'danger'}>
-            {product.stock > 0 ? product.stock : 'Sin Stock'}
-          </Badge>
-        </td>
-        <td className="text-center">
-          <Button variant="outline-primary" size="sm" className="me-2" onClick={() => openEditModal(product)}>
-            <FaEdit />
-          </Button>
-          <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(product)}>
-            <FaTrash />
-          </Button>
-        </td>
-      </tr>
-    ));
+    return products.map((product, index) => {
+      let stockBadgeVariant = 'success';
+      if (product.stock <= 0) {
+        stockBadgeVariant = 'danger';
+      } else if (product.stock <= product.minimum_stock) {
+        stockBadgeVariant = 'warning';
+      }
+
+      return (
+        <tr key={product.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
+          <td className="ps-3 fw-bold">{product.name}</td>
+          <td>{product.category?.name || 'Sin categoria'}</td>
+          <td className="text-end">${parseFloat(product.price).toFixed(2)}</td>
+          <td className="text-center">
+            <Badge pill bg={stockBadgeVariant}>
+              {product.stock}
+            </Badge>
+          </td>
+          <td className="text-center">{product.minimum_stock}</td>
+          <td className="text-center">
+            <Button variant="outline-primary" size="sm" className="me-2" onClick={() => openEditModal(product)}>
+              <FaEdit />
+            </Button>
+            <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(product)}>
+              <FaTrash />
+            </Button>
+          </td>
+        </tr>
+      );
+    });
   };
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   return (
     <>
-      <Container fluid>
-        <Row className="align-items-center mb-4">
+      <Container fluid className="page-container">
+        <Row className="align-items-center mb-4 animated-header">
           <Col>
-            <h2 className="h4 mb-0">Gestión de Productos</h2>
+            <h2 className="h4 mb-0">Gestion de Productos</h2>
           </Col>
           <Col xs="auto">
             <Button variant="primary" onClick={() => openEditModal(null)}>
               <FaPlus className="me-2" />
-              Añadir Producto
+              Anadir Producto
             </Button>
           </Col>
         </Row>
-        <Card className="shadow-sm">
+        <Card className="shadow-sm animated-card">
           <Card.Header className="p-3">
             <Row>
               <Col md={6} lg={4}>
@@ -155,7 +168,7 @@ const ProductsPage = () => {
                   <Form.Control 
                     placeholder="Buscar por nombre..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => { setPage(1); setSearchTerm(e.target.value); }}
                   />
                 </InputGroup>
               </Col>
@@ -166,9 +179,10 @@ const ProductsPage = () => {
               <thead className="table-light">
                 <tr>
                   <th className="py-3 ps-3">Producto</th>
-                  <th>Categoría</th>
+                  <th>Categoria</th>
                   <th className="text-end">Precio</th>
-                  <th className="text-center">Stock</th>
+                  <th className="text-center">Stock Actual</th>
+                  <th className="text-center">Stock Minimo</th>
                   <th className="text-center">Acciones</th>
                 </tr>
               </thead>
@@ -176,6 +190,21 @@ const ProductsPage = () => {
                 {renderTableContent()}
               </tbody>
             </Table>
+            <div className="d-flex justify-content-between align-items-center p-3">
+              <div className="d-flex align-items-center gap-2">
+                <span className="text-muted">Tamano pagina:</span>
+                <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </Form.Select>
+              </div>
+              <div className="d-flex align-items-center gap-2">
+                <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</Button>
+                <span className="text-muted">Pagina {page} de {totalPages}</span>
+                <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
+              </div>
+            </div>
           </Card.Body>
         </Card>
       </Container>
@@ -189,10 +218,10 @@ const ProductsPage = () => {
 
       <Modal show={showDeleteModal} onHide={closeDeleteModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
+          <Modal.Title>Confirmar Eliminacion</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          ¿Estás seguro de que quieres eliminar el producto <strong>{productToDelete?.name}</strong>? Esta acción no se puede deshacer.
+          Estas seguro de que quieres eliminar el producto <strong>{productToDelete?.name}</strong>? Esta accion no se puede deshacer.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={closeDeleteModal}>Cancelar</Button>
@@ -204,3 +233,8 @@ const ProductsPage = () => {
 };
 
 export default ProductsPage;
+
+
+
+
+

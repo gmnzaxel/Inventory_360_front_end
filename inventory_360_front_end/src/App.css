@@ -1,4 +1,3 @@
-/* --- Variables de Tema  --- */
 :root {
   --bg-color: #f4f7f6;
   --text-color: #212529;
@@ -32,18 +31,15 @@ body {
 .app-container {
   display: grid;
   height: 100vh;
-  /* Definimos la transición para la animación de las columnas */
   transition: grid-template-columns 0.3s ease;
 }
 
-/* Estado por defecto: barra lateral colapsada */
 .app-container.sidebar-closed {
-  grid-template-columns: 80px 1fr; /* Columna 1 (sidebar) = 80px, Columna 2 (contenido) = resto */
+  grid-template-columns: 80px 1fr;
 }
 
-/* Estado cuando la barra lateral está abierta */
 .app-container.sidebar-open {
-  grid-template-columns: 260px 1fr; /* Columna 1 (sidebar) = 260px, Columna 2 (contenido) = resto */
+  grid-template-columns: 260px 1fr;
 }
 
 .content-wrapper {
@@ -62,6 +58,14 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 2rem;
+  will-change: transform;
+  contain: content;
+}
+
+/* Performance hints for heavy lists/tables */
+.table-responsive {
+  content-visibility: auto;
+  contain-intrinsic-size: 600px 400px;
 }
 
 .card {

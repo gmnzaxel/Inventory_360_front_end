@@ -1,13 +1,10 @@
 import React from 'react';
-import axios from 'axios';
+import api from '../api/client';
+import { USER_PREFIX } from '../config/api';
 
 const AuthContext = React.createContext();
 
-const API_URL = 'http://localhost:8000'; 
-
-export const useAuth = () => {
-  return React.useContext(AuthContext);
-};
+export const useAuth = () => React.useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = React.useState(null);
@@ -16,11 +13,11 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserData = async () => {
     try {
-      const response = await axios.get(`${API_URL}/user-control/user/`);
+      const response = await api.get(`${USER_PREFIX}/user/`);
       setCurrentUser(response.data);
       setIsAuthenticated(true);
     } catch (error) {
-      console.error("No se pudieron obtener los datos del usuario.", error);
+      console.error('No se pudieron obtener los datos del usuario.', error);
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
         logout();
       }
@@ -31,7 +28,7 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+        // Authorization header handled by api interceptor
         await fetchUserData();
       }
       setLoading(false);
@@ -41,23 +38,23 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post(`${API_URL}/user-control/login/`, { email, password });
+      const response = await api.post(`${USER_PREFIX}/login/`, { email, password });
       if (response.data.access) {
         const { access, refresh } = response.data;
         localStorage.setItem('accessToken', access);
         localStorage.setItem('refreshToken', refresh);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+        // Authorization header handled by api interceptor
         await fetchUserData();
       }
     } catch (error) {
-      throw new Error(error.response?.data?.detail || 'Email o contraseña incorrectos.');
+      throw new Error(error.response?.data?.detail || 'Email o contrasena incorrectos.');
     }
   };
 
   const registerAdmin = async (name, email, username, password, password2, business) => {
     try {
-      await axios.post(`${API_URL}/user-control/register-admin/`, {
-        name, email, username, password, password2, business
+      await api.post(`${USER_PREFIX}/register-admin/`, {
+        name, email, password, password2, business,
       });
     } catch (error) {
       const errorData = error.response?.data;
@@ -74,14 +71,13 @@ export const AuthProvider = ({ children }) => {
     const refreshToken = localStorage.getItem('refreshToken');
     try {
       if (refreshToken) {
-        await axios.post(`${API_URL}/user-control/logout/`, { refresh: refreshToken });
+        await api.post(`${USER_PREFIX}/logout/`, { refresh: refreshToken });
       }
     } catch (error) {
-      console.error("Error al cerrar sesión en el backend:", error);
+      console.error('Error al cerrar sesion en el backend:', error);
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      delete axios.defaults.headers.common['Authorization'];
       setCurrentUser(null);
       setIsAuthenticated(false);
     }
@@ -89,10 +85,10 @@ export const AuthProvider = ({ children }) => {
 
   const deleteAccount = async () => {
     try {
-      await axios.delete(`${API_URL}/user-control/user/delete/`);
+      await api.delete(`${USER_PREFIX}/user/delete/`);
       logout();
     } catch (error) {
-      console.error("Error al eliminar la cuenta:", error.response?.data);
+      console.error('Error al eliminar la cuenta:', error.response?.data);
       throw new Error(error.response?.data?.detail || 'No se pudo eliminar la cuenta.');
     }
   };
@@ -113,3 +109,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+

@@ -1,13 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Container, Row, Col, Card, Spinner, Alert, ListGroup, Badge } from 'react-bootstrap';
+import api from '../api/client';
+import { CONTROL_PREFIX } from '../config/api';
+import { Container, Row, Col, Card, Spinner, Alert, ListGroup, Table } from 'react-bootstrap';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FaBoxOpen, FaChartLine, FaExclamationTriangle, FaExchangeAlt } from 'react-icons/fa';
-
-const API_URL = 'http://localhost:8000/api/control';
+import { 
+  FaBoxOpen, 
+  FaChartLine, 
+  FaExclamationTriangle, 
+  FaReceipt,
+  FaArrowUp,
+  FaArrowDown,
+  FaWrench,
+  FaExchangeAlt
+} from 'react-icons/fa';
+import './Dashboard.css';
 
 const StatCard = ({ title, value, icon }) => (
-  <Card className="shadow-sm h-100">
+  <Card className="h-100 dashboard-card">
     <Card.Body className="d-flex align-items-center">
       <div className="fs-3 me-3">{icon}</div>
       <div>
@@ -18,6 +27,13 @@ const StatCard = ({ title, value, icon }) => (
   </Card>
 );
 
+const movementConfig = {
+  sale: { icon: FaArrowDown, color: 'danger', text: 'Venta' },
+  purchase: { icon: FaArrowUp, color: 'success', text: 'Compra' },
+  transfer: { icon: FaExchangeAlt, color: 'info', text: 'Transferencia' },
+  adjustment: { icon: FaWrench, color: 'secondary', text: 'Ajuste' },
+};
+
 const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +42,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await axios.get(`${API_URL}/dashboard-data/`);
+        const response = await api.get(`${CONTROL_PREFIX}/dashboard-data/`);
         setData(response.data);
       } catch (err) {
         setError('No se pudieron cargar los datos del dashboard.');
@@ -52,8 +68,7 @@ const Dashboard = () => {
   }
 
   return (
-    <Container fluid>
-      {/* Fila de Tarjetas de Estadísticas */}
+    <Container fluid className="dashboard-container">
       <Row className="g-4 mb-4">
         <Col md={6} xl={3}>
           <StatCard title="Total de Productos" value={data.total_products} icon={<FaBoxOpen className="text-primary"/>} />
@@ -65,17 +80,15 @@ const Dashboard = () => {
           <StatCard title="Stock Bajo" value={data.low_stock_count} icon={<FaExclamationTriangle className="text-warning"/>} />
         </Col>
         <Col md={6} xl={3}>
-           <StatCard title="Transferencias" value={data.total_transfers} icon={<FaExchangeAlt className="text-info"/>} />
+            <StatCard title="No de Ventas" value={data.monthly_sales_count} icon={<FaReceipt className="text-info"/>} />
         </Col>
       </Row>
 
-      {/* Fila de Gráficos y Actividad */}
       <Row className="g-4">
-        {/* Gráfico de Rendimiento de Ventas */}
         <Col lg={8}>
-          <Card className="shadow-sm h-100">
+          <Card className="h-100 dashboard-card">
+            <Card.Header className="card-header-custom">Rendimiento de Ventas (Ultimos 6 meses)</Card.Header>
             <Card.Body>
-              <Card.Title>Rendimiento de Ventas (Últimos 6 meses)</Card.Title>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.sales_performance}>
@@ -92,25 +105,78 @@ const Dashboard = () => {
           </Card>
         </Col>
 
-        {/* Actividad Reciente */}
         <Col lg={4}>
-          <Card className="shadow-sm h-100">
-            <Card.Header>Actividad Reciente</Card.Header>
-            <ListGroup variant="flush">
-              {data.recent_activity.length > 0 ? (
-                data.recent_activity.map(item => (
-                  <ListGroup.Item key={item.id} className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <div className="fw-bold">{item.movement_type.charAt(0).toUpperCase() + item.movement_type.slice(1)}</div>
-                      <small className="text-muted">{item.product.name}</small>
-                    </div>
-                    <Badge bg="light" text="dark">{new Date(item.date).toLocaleDateString()}</Badge>
-                  </ListGroup.Item>
-                ))
+          <Card className="h-100 dashboard-card">
+            <Card.Header className="card-header-custom">Actividad Reciente</Card.Header>
+            <Card.Body className="p-0">
+              <ListGroup variant="flush">
+                {data.recent_activity.length > 0 ? (
+                  data.recent_activity.map(item => {
+                    const config = movementConfig[item.movement_type] || movementConfig.adjustment;
+                    const IconComponent = config.icon;
+                    return (
+                      <ListGroup.Item key={item.id} className="d-flex align-items-center px-3 py-3 activity-item">
+                        <div className={`bg-${config.color}-subtle text-${config.color} rounded-circle d-flex align-items-center justify-content-center me-3 icon-circle`} >
+                          <IconComponent />
+                        </div>
+                        <div className="flex-grow-1">
+                          <div className="text-dark fw-bold">{config.text} de <strong>{item.product.name}</strong></div>
+                          <small className="text-muted">Cantidad: {Math.abs(item.quantity)}</small>
+                        </div>
+                        <div className="text-muted small ms-3 date-text">
+                          {new Date(item.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        </div>
+                      </ListGroup.Item>
+                    );
+                  })
+                ) : (
+                  <div className="text-center text-muted p-5">
+                    No hay actividad reciente.
+                  </div>
+                )}
+              </ListGroup>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row className="g-4 mt-2">
+        <Col>
+          <Card className="dashboard-card">
+            <Card.Header className="card-header-custom">
+              <h5 className="mb-0">
+                <FaExclamationTriangle className="text-warning me-2"/>
+                Productos con Stock Bajo
+              </h5>
+            </Card.Header>
+            <Card.Body className="p-0">
+              {data.low_stock_items.length > 0 ? (
+                <Table responsive hover className="mb-0 dashboard-table">
+                  <thead className="table-light">
+                    <tr>
+                      <th className="ps-3">Producto</th>
+                      <th>Sucursal</th>
+                      <th className="text-center">Stock Actual</th>
+                      <th className="text-center">Stock Minimo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.low_stock_items.map(item => (
+                      <tr key={item.id}>
+                        <td className="ps-3 fw-bold">{item.product.name}</td>
+                        <td>{item.branch.name}</td>
+                        <td className="text-center text-danger fw-bold">{item.quantity}</td>
+                        <td className="text-center">{item.minimum_stock}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
               ) : (
-                <ListGroup.Item>No hay actividad reciente.</ListGroup.Item>
+                <div className="p-4 text-center text-muted">
+                  Excelente! No hay productos con stock bajo.
+                </div>
               )}
-            </ListGroup>
+            </Card.Body>
           </Card>
         </Col>
       </Row>
@@ -119,3 +185,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

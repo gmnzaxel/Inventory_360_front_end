@@ -1,18 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter as Router } from 'react-router-dom';
 import App from './App';
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext'; // 1. Importa el provider
-import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <ThemeProvider> {/* 2. Envuelve la App */}
-        <App />
+    <Router>
+      <ThemeProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ThemeProvider>
-    </AuthProvider>
+    </Router>
   </React.StrictMode>
 );
