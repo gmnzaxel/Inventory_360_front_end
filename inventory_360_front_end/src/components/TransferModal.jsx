@@ -4,6 +4,7 @@ import { formatApiError } from '../utils/errors';
 import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { CONTROL_PREFIX } from '../config/api';
 import { normalizeApiList } from '../utils/apiHelpers';
+import { validatePositiveNumber } from '../utils/validation';
 
 const TransferModal = ({ show, handleClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -12,7 +13,7 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
     branch_id: '',
     quantity: '',
   });
-  
+  const [formErrors, setFormErrors] = useState({});
   const [products, setProducts] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,12 +25,10 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
         try {
           const [productsRes, branchesRes] = await Promise.all([
             api.get(`${CONTROL_PREFIX}/products/`),
-            api.get(`${CONTROL_PREFIX}/branches/`)
+            api.get(`${CONTROL_PREFIX}/branches/`),
           ]);
-          const productList = normalizeApiList(productsRes.data);
-          const branchList = normalizeApiList(branchesRes.data);
-          setProducts(productList);
-          setBranches(branchList);
+          setProducts(normalizeApiList(productsRes.data));
+          setBranches(normalizeApiList(branchesRes.data));
         } catch (err) {
           setError('No se pudieron cargar los productos o sucursales.');
           setProducts([]);
@@ -42,23 +41,38 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.product_id) errors.product_id = 'Seleccioná un producto.';
+    if (!formData.branch_from_id) errors.branch_from_id = 'Seleccioná la sucursal de origen.';
+    if (!formData.branch_id) errors.branch_id = 'Seleccioná la sucursal de destino.';
+    if (formData.branch_from_id && formData.branch_id && formData.branch_from_id === formData.branch_id) {
+      errors.branch_id = 'Origen y destino deben ser distintos.';
+    }
+    const quantityError = validatePositiveNumber(formData.quantity, { label: 'Cantidad' });
+    if (quantityError) errors.quantity = quantityError;
+    return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.branch_from_id === formData.branch_id) {
-      setError('La sucursal de origen y destino no pueden ser la misma.');
-      return;
-    }
-    setLoading(true);
     setError('');
+
+    const validationErrors = validateForm();
+    setFormErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
+    setLoading(true);
     try {
       const payload = {
         ...formData,
-        product_id: formData.product_id ? Number(formData.product_id) : '',
-        branch_from_id: formData.branch_from_id ? Number(formData.branch_from_id) : '',
-        branch_id: formData.branch_id ? Number(formData.branch_id) : '',
+        product_id: Number(formData.product_id),
+        branch_from_id: Number(formData.branch_from_id),
+        branch_id: Number(formData.branch_id),
         quantity: Number(formData.quantity),
         movement_type: 'transfer',
       };
@@ -66,7 +80,7 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
       onSuccess();
       handleClose();
     } catch (err) {
-      setError(formatApiError(err, 'Ocurrio un error al crear la transferencia.'));
+      setError(formatApiError(err, 'Ocurrió un error al crear la transferencia.'));
     } finally {
       setLoading(false);
     }
@@ -74,6 +88,7 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
 
   const handleExited = () => {
     setFormData({ product_id: '', branch_from_id: '', branch_id: '', quantity: '' });
+    setFormErrors({});
     setError('');
   };
 
@@ -82,39 +97,75 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
       <Modal.Header closeButton>
         <Modal.Title>Crear Nueva Transferencia</Modal.Title>
       </Modal.Header>
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleSubmit} noValidate>
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
           <Form.Group className="mb-3">
             <Form.Label>Producto</Form.Label>
-            <Form.Select name="product_id" value={formData.product_id} onChange={handleChange} required>
-              <option value="">Selecciona un producto...</option>
-              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <Form.Select
+              name="product_id"
+              value={formData.product_id}
+              onChange={handleChange}
+              isInvalid={!!formErrors.product_id}
+              required
+            >
+              <option value="">Seleccioná un producto...</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
             </Form.Select>
+            <Form.Control.Feedback type="invalid">{formErrors.product_id}</Form.Control.Feedback>
           </Form.Group>
           <Row>
             <Col>
               <Form.Group className="mb-3">
-                <Form.Label>Desde Sucursal (Origen)</Form.Label>
-                <Form.Select name="branch_from_id" value={formData.branch_from_id} onChange={handleChange} required>
-                  <option value="">Selecciona origen...</option>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                <Form.Label>Desde (Origen)</Form.Label>
+                <Form.Select
+                  name="branch_from_id"
+                  value={formData.branch_from_id}
+                  onChange={handleChange}
+                  isInvalid={!!formErrors.branch_from_id}
+                  required
+                >
+                  <option value="">Seleccioná origen...</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
                 </Form.Select>
+                <Form.Control.Feedback type="invalid">{formErrors.branch_from_id}</Form.Control.Feedback>
               </Form.Group>
             </Col>
             <Col>
               <Form.Group className="mb-3">
-                <Form.Label>Hasta Sucursal (Destino)</Form.Label>
-                <Form.Select name="branch_id" value={formData.branch_id} onChange={handleChange} required>
-                  <option value="">Selecciona destino...</option>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                <Form.Label>Hasta (Destino)</Form.Label>
+                <Form.Select
+                  name="branch_id"
+                  value={formData.branch_id}
+                  onChange={handleChange}
+                  isInvalid={!!formErrors.branch_id}
+                  required
+                >
+                  <option value="">Seleccioná destino...</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
                 </Form.Select>
+                <Form.Control.Feedback type="invalid">{formErrors.branch_id}</Form.Control.Feedback>
               </Form.Group>
             </Col>
           </Row>
           <Form.Group className="mb-3">
-            <Form.Label>Cantidad a Transferir</Form.Label>
-            <Form.Control type="number" name="quantity" value={formData.quantity} onChange={handleChange} min="1" required />
+            <Form.Label>Cantidad</Form.Label>
+            <Form.Control
+              type="number"
+              name="quantity"
+              value={formData.quantity}
+              onChange={handleChange}
+              min="1"
+              isInvalid={!!formErrors.quantity}
+              required
+            />
+            <Form.Control.Feedback type="invalid">{formErrors.quantity}</Form.Control.Feedback>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
@@ -128,6 +179,4 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
   );
 };
 
-export default TransferModal; 
-
-
+export default TransferModal;

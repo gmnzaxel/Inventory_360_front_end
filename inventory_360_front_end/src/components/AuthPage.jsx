@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/client';
-import { Row, Col, Form, Button, Alert, Spinner, Toast, ToastContainer } from 'react-bootstrap';
+import { Row, Col, Form, Button, Alert, Spinner, Toast, ToastContainer, InputGroup } from 'react-bootstrap';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import './AuthPage.css';
+
+const STRONG_PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 const AuthPage = () => {
   const location = useLocation();
@@ -12,17 +14,26 @@ const AuthPage = () => {
   const isLoginPage = location.pathname === '/login';
 
   const [formData, setFormData] = useState({
-    name: '', email: '', username: '', password: '', password2: '',
-    businessName: '', businessAddress: '', businessPhone: ''
+    name: '',
+    email: '',
+    username: '',
+    password: '',
+    password2: '',
+    businessName: '',
+    businessAddress: '',
+    businessPhone: '',
   });
 
   const [error, setError] = useState('');
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showRegisterPassword2, setShowRegisterPassword2] = useState(false);
 
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e) => {
@@ -36,50 +47,55 @@ const AuthPage = () => {
         await login(formData.email, formData.password);
         navigate('/');
       } catch (err) {
-        setError('El correo electronico o la contrasena son incorrectos.');
+        const message = (err?.message || '').trim();
+        setError(message || 'El correo electrónico o la contraseña son incorrectos.');
       } finally {
         setLoading(false);
       }
-    } else {
-      const errs = {};
-      const name = (formData.name || '').trim();
-      const email = (formData.email || '').trim();
-      const pwd = formData.password || '';
-      const pwd2 = formData.password2 || '';
-      const businessName = (formData.businessName || '').trim();
-      const businessAddress = (formData.businessAddress || '').trim();
-      const businessPhone = (formData.businessPhone || '').trim();
+      return;
+    }
 
-      if (!name) errs.name = 'El nombre es requerido.';
-      else if (name.length > 60) errs.name = 'El nombre no puede exceder 60 caracteres.';
+    const errs = {};
+    const name = (formData.name || '').trim();
+    const email = (formData.email || '').trim();
+    const pwd = formData.password || '';
+    const pwd2 = formData.password2 || '';
+    const businessName = (formData.businessName || '').trim();
+    const businessAddress = (formData.businessAddress || '').trim();
+    const businessPhone = (formData.businessPhone || '').trim();
 
-      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRe.test(email)) errs.email = 'El email no tiene un formato valido.';
+    if (!name) errs.name = 'El nombre es requerido.';
+    else if (name.length > 60) errs.name = 'El nombre no puede exceder 60 caracteres.';
 
-      const strongPwd = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-      if (!strongPwd.test(pwd)) errs.password = 'La contrasena debe tener 8+ caracteres, incluir letras, numeros y un simbolo.';
-      if (pwd !== pwd2) errs.password2 = 'Las contrasenas no coinciden.';
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(email)) errs.email = 'El email no tiene un formato válido.';
 
-      if (!businessName) errs.businessName = 'El nombre de la empresa es requerido.';
-      if (businessName.length > 100) errs.businessName = 'El nombre de la empresa no puede exceder 100 caracteres.';
-      if (businessAddress.length > 200) errs.businessAddress = 'La direccion no puede exceder 200 caracteres.';
-      const phoneRe = /^[+()\d\s-]{3,30}$/;
-      if (businessPhone && !phoneRe.test(businessPhone)) errs.businessPhone = 'El telefono solo puede contener digitos, espacios, +, -, ().';
-      if (businessPhone.length > 30) errs.businessPhone = 'El telefono no puede exceder 30 caracteres.';
+    if (!STRONG_PASSWORD_REGEX.test(pwd)) errs.password = 'La contraseña debe tener 8+ caracteres e incluir mayúsculas, minúsculas, números y un símbolo.';
+    if (pwd !== pwd2) errs.password2 = 'Las contraseñas no coinciden.';
 
-      setFormErrors(errs);
-      if (Object.keys(errs).length > 0) { setLoading(false); return; }
+    if (!businessName) errs.businessName = 'El nombre de la empresa es requerido.';
+    if (businessName.length > 100) errs.businessName = 'El nombre de la empresa no puede exceder 100 caracteres.';
+    if (businessAddress.length > 200) errs.businessAddress = 'La dirección no puede exceder 200 caracteres.';
+    const phoneRe = /^[+()\d\s-]{3,30}$/;
+    if (businessPhone && !phoneRe.test(businessPhone)) errs.businessPhone = 'El teléfono solo puede contener dígitos, espacios, +, -, ().';
+    if (businessPhone.length > 30) errs.businessPhone = 'El teléfono no puede exceder 30 caracteres.';
 
-      const businessData = { name: businessName, address: businessAddress, phone: businessPhone };
-      try {
-        await registerAdmin(name, email, formData.username, pwd, pwd2, businessData);
-        setSuccessMessage('Cuenta creada con exito! Seras redirigido para iniciar sesion.');
-        setTimeout(() => navigate('/login'), 3000);
-      } catch (err) {
-        setError('Ocurrio un error al registrar la cuenta. Intentalo de nuevo.');
-      } finally {
-        setLoading(false);
-      }
+    setFormErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      setLoading(false);
+      return;
+    }
+
+    const businessData = { name: businessName, address: businessAddress, phone: businessPhone };
+    try {
+      await registerAdmin(name, email, formData.username, pwd, pwd2, businessData);
+      setSuccessMessage('Cuenta creada con éxito. Serás redirigido para iniciar sesión.');
+      setTimeout(() => navigate('/login'), 3000);
+    } catch (err) {
+      const message = (err?.message || '').trim();
+      setError(message || 'Ocurrió un error al registrar la cuenta. Intentalo de nuevo.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -116,14 +132,28 @@ const AuthPage = () => {
             {isLoginPage ? (
               <>
                 <Form.Group className="mb-3">
-                  <Form.Label>Correo Electronico</Form.Label>
+                  <Form.Label>Correo Electrónico</Form.Label>
                   <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} required />
                 </Form.Group>
                 <Form.Group className="mb-4">
-                  <Form.Label>Contrasena</Form.Label>
-                  <Form.Control type="password" name="password" value={formData.password} onChange={handleChange} required />
+                  <Form.Label>Contraseña</Form.Label>
+                  <InputGroup>
+                    <Form.Control
+                      type={showLoginPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                    />
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => setShowLoginPassword((prev) => !prev)}
+                      aria-label={showLoginPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showLoginPassword ? <FaEyeSlash /> : <FaEye />}
+                    </Button>
+                  </InputGroup>
                 </Form.Group>
-                {/* Boton de recuperar/cambiar contrasena eliminado */}
               </>
             ) : (
               <>
@@ -137,7 +167,7 @@ const AuthPage = () => {
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label>Username</Form.Label>
+                      <Form.Label>Usuario</Form.Label>
                       <Form.Control type="text" name="username" value={formData.username} onChange={handleChange} required />
                     </Form.Group>
                   </Col>
@@ -150,16 +180,48 @@ const AuthPage = () => {
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-4">
-                      <Form.Label>Contrasena</Form.Label>
-                      <Form.Control type="password" name="password" value={formData.password} onChange={handleChange} isInvalid={!!formErrors.password} required />
-                      <Form.Control.Feedback type="invalid">{formErrors.password}</Form.Control.Feedback>
+                      <Form.Label>Contraseña</Form.Label>
+                      <InputGroup>
+                        <Form.Control
+                          type={showRegisterPassword ? 'text' : 'password'}
+                          name="password"
+                          value={formData.password}
+                          onChange={handleChange}
+                          isInvalid={!!formErrors.password}
+                          required
+                        />
+                        <Button
+                          variant="outline-secondary"
+                          onClick={() => setShowRegisterPassword((prev) => !prev)}
+                          aria-label={showRegisterPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {showRegisterPassword ? <FaEyeSlash /> : <FaEye />}
+                        </Button>
+                      </InputGroup>
+                      {formErrors.password && <div className="invalid-feedback d-block">{formErrors.password}</div>}
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-4">
                       <Form.Label>Confirmar</Form.Label>
-                      <Form.Control type="password" name="password2" value={formData.password2} onChange={handleChange} isInvalid={!!formErrors.password2} required />
-                      <Form.Control.Feedback type="invalid">{formErrors.password2}</Form.Control.Feedback>
+                      <InputGroup>
+                        <Form.Control
+                          type={showRegisterPassword2 ? 'text' : 'password'}
+                          name="password2"
+                          value={formData.password2}
+                          onChange={handleChange}
+                          isInvalid={!!formErrors.password2}
+                          required
+                        />
+                        <Button
+                          variant="outline-secondary"
+                          onClick={() => setShowRegisterPassword2((prev) => !prev)}
+                          aria-label={showRegisterPassword2 ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                        >
+                          {showRegisterPassword2 ? <FaEyeSlash /> : <FaEye />}
+                        </Button>
+                      </InputGroup>
+                      {formErrors.password2 && <div className="invalid-feedback d-block">{formErrors.password2}</div>}
                     </Form.Group>
                   </Col>
                 </Row>
@@ -170,12 +232,12 @@ const AuthPage = () => {
                   <Form.Control.Feedback type="invalid">{formErrors.businessName}</Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label>Direccion</Form.Label>
+                  <Form.Label>Dirección</Form.Label>
                   <Form.Control type="text" name="businessAddress" value={formData.businessAddress} onChange={handleChange} isInvalid={!!formErrors.businessAddress} />
                   <Form.Control.Feedback type="invalid">{formErrors.businessAddress}</Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label>Telefono</Form.Label>
+                  <Form.Label>Teléfono</Form.Label>
                   <Form.Control type="text" name="businessPhone" value={formData.businessPhone} onChange={handleChange} isInvalid={!!formErrors.businessPhone} />
                   <Form.Control.Feedback type="invalid">{formErrors.businessPhone}</Form.Control.Feedback>
                 </Form.Group>
@@ -184,15 +246,15 @@ const AuthPage = () => {
 
             <div className="d-grid mt-4">
               <Button variant="primary" type="submit" disabled={loading}>
-                {loading ? <Spinner as="span" animation="border" size="sm" /> : (isLoginPage ? 'Ingresar' : 'Crear Cuenta y Configurar')}
+                {loading ? <Spinner as="span" animation="border" size="sm" /> : (isLoginPage ? 'Ingresar' : 'Crear cuenta y configurar')}
               </Button>
             </div>
 
             <div className="auth-footer">
               {isLoginPage ? (
-                <span>No tienes una cuenta? <Link to="/register">Registrate</Link></span>
+                <span>¿No tenés una cuenta? <Link to="/register">Registrate</Link></span>
               ) : (
-                <span>Ya tienes una cuenta? <Link to="/login">Inicia Sesion</Link></span>
+                <span>¿Ya tenés una cuenta? <Link to="/login">Iniciá sesión</Link></span>
               )}
             </div>
           </Form>
@@ -216,4 +278,3 @@ const AuthPage = () => {
 };
 
 export default AuthPage;
-

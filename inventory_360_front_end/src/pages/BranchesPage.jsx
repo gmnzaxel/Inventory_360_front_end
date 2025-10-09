@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Container, Row, Col, Card, Button, Form, Spinner, Alert, Modal } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
 import { CONTROL_PREFIX } from '../config/api';
+import { validateName, validatePhone, validateRequiredText } from '../utils/validation';
 
 const emptyBranch = { name: '', address: '', phone: '' };
 
@@ -22,6 +23,7 @@ const BranchesPage = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [branchForm, setBranchForm] = useState(emptyBranch);
+  const [branchErrors, setBranchErrors] = useState({});
   const [branchToEdit, setBranchToEdit] = useState(null);
   const [modalError, setModalError] = useState('');
   const [modalLoading, setModalLoading] = useState(false);
@@ -52,6 +54,7 @@ const BranchesPage = () => {
   const openModal = (branch = null) => {
     setBranchToEdit(branch);
     setBranchForm(branch ? { name: branch.name || '', address: branch.address || '', phone: branch.phone || '' } : { ...emptyBranch });
+    setBranchErrors({});
     setModalError('');
     setShowModal(true);
   };
@@ -60,18 +63,39 @@ const BranchesPage = () => {
     setShowModal(false);
     setBranchToEdit(null);
     setBranchForm({ ...emptyBranch });
+    setBranchErrors({});
     setModalError('');
     setModalLoading(false);
+  };
+
+  const validateBranchForm = (form) => {
+    const errors = {};
+    const nameError = validateName(form.name, { label: 'Nombre de la sucursal', min: 3, max: 80 });
+    if (nameError) errors.name = nameError;
+
+    const addressError = validateRequiredText(form.address, { label: 'Dirección', min: 5, max: 200 });
+    if (addressError) errors.address = addressError;
+
+    const phoneError = validatePhone(form.phone, { label: 'Teléfono', digits: 10 });
+    if (phoneError) errors.phone = phoneError;
+
+    return errors;
   };
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     setBranchForm((prev) => ({ ...prev, [name]: value }));
+    setBranchErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
   const handleSubmitBranch = async (event) => {
     event.preventDefault();
     setModalError('');
+
+    const validationErrors = validateBranchForm(branchForm);
+    setBranchErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
     setModalLoading(true);
     try {
       if (branchToEdit) {
@@ -154,12 +178,12 @@ const BranchesPage = () => {
       <Container fluid className="page-container">
         <Row className="align-items-center mb-4 animated-header">
           <Col>
-            <h2 className="h4 mb-0">Gestion de Sucursales</h2>
+            <h2 className="h4 mb-0">Gestión de Sucursales</h2>
           </Col>
           {isAdmin && (
             <Col xs="auto">
               <Button variant="primary" onClick={() => openModal()}>
-                <FaPlus className="me-2" />Anadir Sucursal
+                <FaPlus className="me-2" />Añadir Sucursal
               </Button>
             </Col>
           )}
@@ -167,17 +191,29 @@ const BranchesPage = () => {
         <Row>{renderContent()}</Row>
         <div className="d-flex justify-content-between align-items-center p-3">
           <div className="d-flex align-items-center gap-2">
-            <span className="text-muted">Tamano pagina:</span>
-            <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
+            <span className="text-muted">Tamaño página:</span>
+            <Form.Select
+              size="sm"
+              style={{ width: 'auto' }}
+              value={pageSize}
+              onChange={(e) => {
+                setPage(1);
+                setPageSize(parseInt(e.target.value, 10) || 10);
+              }}
+            >
               <option value="10">10</option>
               <option value="20">20</option>
               <option value="50">50</option>
             </Form.Select>
           </div>
           <div className="d-flex align-items-center gap-2">
-            <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-            <span className="text-muted">Pagina {page} de {totalPages}</span>
-            <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
+            <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              Anterior
+            </Button>
+            <span className="text-muted">Página {page} de {totalPages}</span>
+            <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              Siguiente
+            </Button>
           </div>
         </div>
       </Container>
@@ -186,26 +222,52 @@ const BranchesPage = () => {
         <Modal.Header closeButton>
           <Modal.Title>{branchToEdit ? 'Editar Sucursal' : 'Nueva Sucursal'}</Modal.Title>
         </Modal.Header>
-        <Form onSubmit={handleSubmitBranch}>
+        <Form onSubmit={handleSubmitBranch} noValidate>
           <Modal.Body>
             {modalError && <Alert variant="danger">{modalError}</Alert>}
             <Form.Group className="mb-3">
               <Form.Label>Nombre</Form.Label>
-              <Form.Control type="text" name="name" value={branchForm.name} onChange={handleInputChange} required />
+              <Form.Control
+                type="text"
+                name="name"
+                value={branchForm.name}
+                onChange={handleInputChange}
+                isInvalid={!!branchErrors.name}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{branchErrors.name}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Direccion</Form.Label>
-              <Form.Control type="text" name="address" value={branchForm.address} onChange={handleInputChange} required />
+              <Form.Label>Dirección</Form.Label>
+              <Form.Control
+                type="text"
+                name="address"
+                value={branchForm.address}
+                onChange={handleInputChange}
+                isInvalid={!!branchErrors.address}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{branchErrors.address}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group>
-              <Form.Label>Telefono</Form.Label>
-              <Form.Control type="text" name="phone" value={branchForm.phone} onChange={handleInputChange} required />
+              <Form.Label>Teléfono</Form.Label>
+              <Form.Control
+                type="text"
+                name="phone"
+                value={branchForm.phone}
+                onChange={handleInputChange}
+                isInvalid={!!branchErrors.phone}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{branchErrors.phone}</Form.Control.Feedback>
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={closeModal}>Cancelar</Button>
+            <Button variant="secondary" onClick={closeModal}>
+              Cancelar
+            </Button>
             <Button variant="primary" type="submit" disabled={modalLoading}>
-              {modalLoading ? <Spinner as="span" size="sm" /> : branchToEdit ? 'Guardar Cambios' : 'Guardar Sucursal'}
+              {modalLoading ? <Spinner as="span" size="sm" /> : branchToEdit ? 'Guardar cambios' : 'Guardar sucursal'}
             </Button>
           </Modal.Footer>
         </Form>
@@ -213,10 +275,10 @@ const BranchesPage = () => {
 
       <Modal show={showDeleteModal} onHide={closeDeleteConfirmation} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminacion</Modal.Title>
+          <Modal.Title>Confirmar Eliminación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Estas seguro de que quieres eliminar la sucursal <strong>{branchToDelete?.name}</strong>? Esta accion no se puede deshacer.
+          ¿Estás seguro de eliminar la sucursal <strong>{branchToDelete?.name}</strong>? Esta acción no se puede deshacer.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={closeDeleteConfirmation}>Cancelar</Button>
@@ -230,4 +292,3 @@ const BranchesPage = () => {
 };
 
 export default BranchesPage;
-

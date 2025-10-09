@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
 import { formatApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Container, Row, Col, Card, Button, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash, FaTruck, FaUserTie, FaPhone, FaEnvelope } from 'react-icons/fa';
 import { CONTROL_PREFIX } from '../config/api';
+import { validateName, validatePhone, validateEmail } from '../utils/validation';
 
 const SuppliersPage = () => {
   const { currentUser } = useAuth();
@@ -19,6 +20,7 @@ const SuppliersPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentSupplier, setCurrentSupplier] = useState({ name: '', contact_person: '', phone: '', email: '' });
+  const [formErrors, setFormErrors] = useState({});
   const [modalError, setModalError] = useState('');
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -26,7 +28,7 @@ const SuppliersPage = () => {
 
   const isAdmin = currentUser?.role === 'admin';
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -39,39 +41,75 @@ const SuppliersPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchSuppliers();
-  }, [page, pageSize]);
+  }, [fetchSuppliers]);
 
   const handleCloseModal = () => {
     setShowModal(false);
     setIsEditMode(false);
     setCurrentSupplier({ name: '', contact_person: '', phone: '', email: '' });
+    setFormErrors({});
     setModalError('');
   };
 
-  const handleShowCreateModal = () => {
+  const openCreateModal = () => {
     setIsEditMode(false);
     setCurrentSupplier({ name: '', contact_person: '', phone: '', email: '' });
+    setFormErrors({});
+    setModalError('');
     setShowModal(true);
   };
 
-  const handleShowEditModal = (supplier) => {
+  const openEditModal = (supplier) => {
     setIsEditMode(true);
-    setCurrentSupplier(supplier);
+    setCurrentSupplier({
+      id: supplier.id,
+      name: supplier.name || '',
+      contact_person: supplier.contact_person || '',
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+    });
+    setFormErrors({});
+    setModalError('');
     setShowModal(true);
+  };
+
+  const validateSupplier = (supplier) => {
+    const errors = {};
+    const nameError = validateName(supplier.name, { label: 'Nombre del proveedor', min: 3, max: 80 });
+    if (nameError) errors.name = nameError;
+
+    if (supplier.contact_person) {
+      const contactError = validateName(supplier.contact_person, { label: 'Persona de contacto', min: 2, max: 80 });
+      if (contactError) errors.contact_person = contactError;
+    }
+
+    const phoneError = validatePhone(supplier.phone, { label: 'Teléfono', digits: 10 });
+    if (phoneError) errors.phone = phoneError;
+
+    const emailError = validateEmail(supplier.email, { label: 'Email' });
+    if (emailError) errors.email = emailError;
+
+    return errors;
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCurrentSupplier(prev => ({ ...prev, [name]: value }));
+    setCurrentSupplier((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setModalError('');
+
+    const validationErrors = validateSupplier(currentSupplier);
+    setFormErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
     try {
       if (isEditMode) {
         await api.put(`${CONTROL_PREFIX}/suppliers/${currentSupplier.id}/`, currentSupplier);
@@ -81,8 +119,21 @@ const SuppliersPage = () => {
       fetchSuppliers();
       handleCloseModal();
     } catch (err) {
-      setModalError('Error al guardar el proveedor. Revisa los campos.');
-      console.error(err);
+      const message = formatApiError(err, 'Error al guardar el proveedor. Revisa los campos.');
+      setModalError(message);
+      const data = err.response?.data;
+      if (data && typeof data === 'object') {
+        const fieldErrors = {};
+        ['name', 'contact_person', 'phone', 'email'].forEach((field) => {
+          if (data[field]) {
+            const value = Array.isArray(data[field]) ? data[field].join(' ') : String(data[field]);
+            fieldErrors[field] = value;
+          }
+        });
+        if (Object.keys(fieldErrors).length) {
+          setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
+        }
+      }
     }
   };
 
@@ -103,8 +154,7 @@ const SuppliersPage = () => {
       closeDeleteModal();
       fetchSuppliers();
     } catch (err) {
-      console.error("Error al eliminar el proveedor", err);
-      alert('No se pudo eliminar el proveedor.');
+      alert(formatApiError(err, 'No se pudo eliminar el proveedor.'));
     }
   };
 
@@ -117,16 +167,16 @@ const SuppliersPage = () => {
       <Col key={supplier.id} md={6} lg={4} className="mb-4 animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
         <Card className="h-100 shadow-sm">
           <Card.Body>
-            <Card.Title className="fw-bold d-flex align-items-center"><FaTruck className="me-2"/>{supplier.name}</Card.Title>
+            <Card.Title className="fw-bold d-flex align-items-center"><FaTruck className="me-2" />{supplier.name}</Card.Title>
             <Card.Text as="div" className="text-muted mt-3">
-              <p className="mb-2 d-flex"><FaUserTie className="me-2 mt-1"/>{supplier.contact_person || 'N/A'}</p>
-              <p className="mb-2 d-flex"><FaPhone className="me-2 mt-1"/>{supplier.phone || 'N/A'}</p>
-              <p className="mb-0 d-flex"><FaEnvelope className="me-2 mt-1"/>{supplier.email || 'N/A'}</p>
+              <p className="mb-2 d-flex"><FaUserTie className="me-2 mt-1" />{supplier.contact_person || 'N/A'}</p>
+              <p className="mb-2 d-flex"><FaPhone className="me-2 mt-1" />{supplier.phone || 'N/A'}</p>
+              <p className="mb-0 d-flex"><FaEnvelope className="me-2 mt-1" />{supplier.email || 'N/A'}</p>
             </Card.Text>
           </Card.Body>
           {isAdmin && (
             <Card.Footer className="bg-light d-flex justify-content-end gap-2">
-              <Button variant="outline-primary" size="sm" onClick={() => handleShowEditModal(supplier)}><FaEdit className="me-1" /> Editar</Button>
+              <Button variant="outline-primary" size="sm" onClick={() => openEditModal(supplier)}><FaEdit className="me-1" /> Editar</Button>
               <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(supplier)}><FaTrash className="me-1" /> Eliminar</Button>
             </Card.Footer>
           )}
@@ -140,54 +190,85 @@ const SuppliersPage = () => {
       <Container fluid className="page-container">
         <Row className="align-items-center mb-4 animated-header">
           <Col>
-            <h2 className="h4 mb-0">Gestion de Proveedores</h2>
+            <h2 className="h4 mb-0">Gestión de Proveedores</h2>
           </Col>
           {isAdmin && (
             <Col xs="auto">
-              <Button variant="primary" onClick={handleShowCreateModal}><FaPlus className="me-2" />Anadir Proveedor</Button>
+              <Button variant="primary" onClick={openCreateModal}><FaPlus className="me-2" />Añadir Proveedor</Button>
             </Col>
           )}
         </Row>
         <Row>{renderContent()}</Row>
-              </Container>
+      </Container>
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
           <Modal.Title>{isEditMode ? 'Editar Proveedor' : 'Nuevo Proveedor'}</Modal.Title>
         </Modal.Header>
-        <Form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit} noValidate>
           <Modal.Body>
             {modalError && <Alert variant="danger">{modalError}</Alert>}
             <Form.Group className="mb-3">
               <Form.Label>Nombre</Form.Label>
-              <Form.Control type="text" name="name" value={currentSupplier.name} onChange={handleInputChange} required />
+              <Form.Control
+                type="text"
+                name="name"
+                value={currentSupplier.name}
+                onChange={handleInputChange}
+                isInvalid={!!formErrors.name}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{formErrors.name}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Persona de Contacto</Form.Label>
-              <Form.Control type="text" name="contact_person" value={currentSupplier.contact_person} onChange={handleInputChange} />
+              <Form.Control
+                type="text"
+                name="contact_person"
+                value={currentSupplier.contact_person}
+                onChange={handleInputChange}
+                isInvalid={!!formErrors.contact_person}
+              />
+              <Form.Control.Feedback type="invalid">{formErrors.contact_person}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Telefono</Form.Label>
-              <Form.Control type="text" name="phone" value={currentSupplier.phone} onChange={handleInputChange} />
+              <Form.Label>Teléfono</Form.Label>
+              <Form.Control
+                type="text"
+                name="phone"
+                value={currentSupplier.phone}
+                onChange={handleInputChange}
+                isInvalid={!!formErrors.phone}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{formErrors.phone}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group>
               <Form.Label>Email</Form.Label>
-              <Form.Control type="email" name="email" value={currentSupplier.email} onChange={handleInputChange} />
+              <Form.Control
+                type="email"
+                name="email"
+                value={currentSupplier.email}
+                onChange={handleInputChange}
+                isInvalid={!!formErrors.email}
+                required
+              />
+              <Form.Control.Feedback type="invalid">{formErrors.email}</Form.Control.Feedback>
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-            <Button variant="primary" type="submit">Guardar</Button>
+            <Button variant="primary" type="submit">{isEditMode ? 'Guardar cambios' : 'Guardar proveedor'}</Button>
           </Modal.Footer>
         </Form>
       </Modal>
 
       <Modal show={showDeleteModal} onHide={closeDeleteModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminacion</Modal.Title>
+          <Modal.Title>Confirmar Eliminación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Estas seguro de que quieres eliminar al proveedor <strong>{supplierToDelete?.name}</strong>? Esta accion no se puede deshacer.
+          ¿Estás seguro de que quieres eliminar al proveedor <strong>{supplierToDelete?.name}</strong>? Esta acción no se puede deshacer.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={closeDeleteModal}>Cancelar</Button>
@@ -199,10 +280,3 @@ const SuppliersPage = () => {
 };
 
 export default SuppliersPage;
-
-
-
-
-
-
-

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
 import { formatApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
@@ -205,7 +205,7 @@ const PurchasesPage = () => {
                   const endValue = new Date();
                   const startValue = new Date(endValue.getFullYear(), 0, 1);
                   applyRange(startValue.toISOString().slice(0, 10), endValue.toISOString().slice(0, 10));
-                }}>Este ano</Button>
+                }}>Este año</Button>
                 <Button size="sm" variant="outline-secondary" onClick={() => applyRange('', '')}>Limpiar</Button>
               </Col>
             </Row>
@@ -227,7 +227,7 @@ const PurchasesPage = () => {
             </Table>
             <div className="d-flex justify-content-between align-items-center p-3">
               <div className="d-flex align-items-center gap-2">
-                <span className="text-muted">Tamano pagina:</span>
+                <span className="text-muted">Tamaño página:</span>
                 <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
                   <option value="10">10</option>
                   <option value="20">20</option>
@@ -236,7 +236,7 @@ const PurchasesPage = () => {
               </div>
               <div className="d-flex align-items-center gap-2">
                 <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</Button>
-                <span className="text-muted">Pagina {page} de {totalPages}</span>
+                <span className="text-muted">Página {page} de {totalPages}</span>
                 <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
               </div>
             </div>

@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { Container, Row, Col, Card, Badge, Button, Modal, Form, Alert, Image } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
-import { FaEnvelope, FaBuilding, FaStore, FaUserTag, FaExclamationTriangle, FaPencilAlt } from 'react-icons/fa';
+import { FaBuilding, FaStore, FaUserTag, FaExclamationTriangle, FaPencilAlt } from 'react-icons/fa';
+import { validateName } from '../utils/validation';
 
 const ProfilePage = () => {
   const { currentUser, deleteAccount } = useAuth();
-  
+
   const [showModal, setShowModal] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [error, setError] = useState('');
+  const [editError, setEditError] = useState('');
 
   if (!currentUser) {
     return <Container fluid><p>Cargando perfil...</p></Container>;
@@ -27,30 +29,29 @@ const ProfilePage = () => {
 
   const handleOpenEdit = () => {
     setEditName(currentUser?.name || '');
+    setEditError('');
     setShowEdit(true);
   };
   const handleCloseEdit = () => {
     setShowEdit(false);
     setEditName('');
-    setError('');
+    setEditError('');
   };
 
   const handleSaveProfile = async () => {
-    if (!editName.trim()) {
-      setError('El nombre no puede estar vacio.');
+    const validationError = validateName(editName, { label: 'Nombre', min: 2, max: 60 });
+    if (validationError) {
+      setEditError(validationError);
       return;
     }
-    if (editName.trim().length > 60) {
-      setError('El nombre no puede exceder 60 caracteres.');
-      return;
-    }
+
     setSaving(true);
-    setError('');
+    setEditError('');
     try {
       await api.patch(`/user-control/users/${currentUser.id}/`, { name: editName.trim() });
       window.location.reload();
     } catch (e) {
-      setError('No se pudo actualizar el perfil.');
+      setEditError('No se pudo actualizar el perfil.');
     } finally {
       setSaving(false);
     }
@@ -73,7 +74,7 @@ const ProfilePage = () => {
         <Row className="justify-content-center">
           <Col lg={10} xl={8}>
             <h2 className="h4 mb-4 animated-header">Mi Perfil</h2>
-            
+
             <Card className="shadow-sm mb-4 animated-card">
               <Card.Body className="p-4">
                 <div className="d-flex align-items-center mb-4">
@@ -116,7 +117,7 @@ const ProfilePage = () => {
                 Zona de Peligro
               </Card.Header>
               <Card.Body>
-                <p>Una vez que elimines tu cuenta, no hay vuelta atras. Por favor, ten la seguridad.</p>
+                <p>Una vez que elimines tu cuenta, no hay vuelta atrás. Por favor, asegurate antes de continuar.</p>
                 <Button variant="danger" onClick={handleShowModal}>
                   Eliminar mi cuenta
                 </Button>
@@ -128,18 +129,18 @@ const ProfilePage = () => {
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="text-danger">Estas absolutamente seguro?</Modal.Title>
+          <Modal.Title className="text-danger">¿Estás absolutamente seguro?</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
-          <p>Esta accion es irreversible.</p>
+          <p>Esta acción es irreversible.</p>
           {currentUser.role === 'admin' && (
             <Alert variant="warning">
-              <strong>Atencion, eres administrador!</strong> Si eres el ultimo administrador, al eliminar tu cuenta se borrara <strong>toda la empresa</strong>, incluyendo todas las sucursales, productos y datos de otros usuarios.
+              <strong>¡Atención, eres administrador!</strong> Si sos el último administrador, al eliminar tu cuenta se borrará <strong>toda la empresa</strong>, incluyendo sucursales, productos y datos de otros usuarios.
             </Alert>
           )}
-          <p>Por favor, escribe <strong>ELIMINAR</strong> para confirmar.</p>
-          <Form.Control 
+          <p>Por favor, escribí <strong>ELIMINAR</strong> para confirmar.</p>
+          <Form.Control
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
@@ -148,8 +149,8 @@ const ProfilePage = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button 
-            variant="danger" 
+          <Button
+            variant="danger"
             onClick={handleDelete}
             disabled={confirmText !== 'ELIMINAR'}
           >
@@ -163,10 +164,16 @@ const ProfilePage = () => {
           <Modal.Title>Editar Perfil</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && <Alert variant="danger">{error}</Alert>}
+          {editError && <Alert variant="danger">{editError}</Alert>}
           <Form.Group className="mb-3">
             <Form.Label>Nombre</Form.Label>
-            <Form.Control value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={60} required />
+            <Form.Control
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              maxLength={60}
+              required
+            />
+            <Form.Text className="text-muted">Nombre y apellido con la inicial en mayúscula.</Form.Text>
           </Form.Group>
           <Form.Text className="text-muted">El email y rol no pueden editarse.</Form.Text>
         </Modal.Body>
@@ -182,5 +189,3 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
-
-
