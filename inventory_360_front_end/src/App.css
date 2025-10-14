@@ -1,0 +1,105 @@
+:root {
+  --bg-color: #f4f7f6;
+  --text-color: #212529;
+  --sidebar-bg: #212529;
+  --sidebar-text: #adb5bd;
+  --sidebar-hover-bg: #343a40;
+  --header-bg: #ffffff;
+  --card-bg: #ffffff;
+  --card-header-bg: #f8f9fa;
+  --border-color: #dee2e6;
+}
+
+body[data-theme='dark'] {
+  --bg-color: #121212;
+  --text-color: #e0e0e0;
+  --sidebar-bg: #17191d;
+  --sidebar-border: #2a2d34;
+  --sidebar-text: #a0a0a0;
+  --sidebar-hover-bg: #333333;
+  --header-bg: #1f2127;
+  --card-bg: #1e1e1e;
+  --card-header-bg: #2c2c2c;
+  --border-color: #444444;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.app-container {
+  display: grid;
+  height: 100vh;
+  transition: grid-template-columns 0.3s ease;
+}
+
+.app-container.sidebar-closed {
+  grid-template-columns: 80px 1fr;
+}
+
+.app-container.sidebar-open {
+  grid-template-columns: 260px 1fr;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  will-change: transform;
+  contain: content;
+}
+
+/* Performance hints for heavy lists/tables */
+.table-responsive {
+  content-visibility: auto;
+  contain-intrinsic-size: 600px 400px;
+}
+
+.card {
+  background-color: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.card-header, .card-footer {
+  background-color: var(--card-header-bg) !important;
+  border-color: var(--border-color) !important;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.table {
+  color: var(--text-color) !important;
+}
+
+.table-light {
+  --bs-table-bg: var(--card-header-bg);
+  --bs-table-border-color: var(--border-color);
+}
+
+.dropdown-menu {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+.dropdown-item {
+  color: var(--text-color);
+}
+
+.dropdown-item:hover {
+  background-color: var(--sidebar-hover-bg);
+}

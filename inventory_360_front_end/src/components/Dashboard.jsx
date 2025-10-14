@@ -1,0 +1,188 @@
+import React, { useState, useEffect } from 'react';
+import api from '../api/client';
+import { CONTROL_PREFIX } from '../config/api';
+import { Container, Row, Col, Card, Spinner, Alert, ListGroup, Table } from 'react-bootstrap';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { 
+  FaBoxOpen, 
+  FaChartLine, 
+  FaExclamationTriangle, 
+  FaReceipt,
+  FaArrowUp,
+  FaArrowDown,
+  FaWrench,
+  FaExchangeAlt
+} from 'react-icons/fa';
+import './Dashboard.css';
+
+const StatCard = ({ title, value, icon }) => (
+  <Card className="h-100 dashboard-card">
+    <Card.Body className="d-flex align-items-center">
+      <div className="fs-3 me-3">{icon}</div>
+      <div>
+        <div className="text-muted text-uppercase small">{title}</div>
+        <div className="fs-4 fw-bold">{value}</div>
+      </div>
+    </Card.Body>
+  </Card>
+);
+
+const movementConfig = {
+  sale: { icon: FaArrowDown, color: 'danger', text: 'Venta' },
+  purchase: { icon: FaArrowUp, color: 'success', text: 'Compra' },
+  transfer: { icon: FaExchangeAlt, color: 'info', text: 'Transferencia' },
+  adjustment: { icon: FaWrench, color: 'secondary', text: 'Ajuste' },
+};
+
+const Dashboard = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await api.get(`${CONTROL_PREFIX}/dashboard-data/`);
+        setData(response.data);
+      } catch (err) {
+        setError('No se pudieron cargar los datos del dashboard.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Container fluid className="d-flex justify-content-center align-items-center" style={{ height: '80vh' }}>
+        <Spinner animation="border" />
+        <p className="ms-3 mb-0">Cargando Dashboard...</p>
+      </Container>
+    );
+  }
+
+  if (error || !data) {
+    return <Container fluid><Alert variant="danger">{error || 'No se recibieron datos.'}</Alert></Container>;
+  }
+
+  return (
+    <Container fluid className="dashboard-container">
+      <Row className="g-4 mb-4">
+        <Col md={6} xl={3}>
+          <StatCard title="Total de Productos" value={data.total_products} icon={<FaBoxOpen className="text-primary"/>} />
+        </Col>
+        <Col md={6} xl={3}>
+          <StatCard title="Ventas del Mes" value={`$${data.monthly_sales.toFixed(2)}`} icon={<FaChartLine className="text-success"/>} />
+        </Col>
+        <Col md={6} xl={3}>
+          <StatCard title="Stock Bajo" value={data.low_stock_count} icon={<FaExclamationTriangle className="text-warning"/>} />
+        </Col>
+        <Col md={6} xl={3}>
+            <StatCard title="N° de Ventas" value={data.monthly_sales_count} icon={<FaReceipt className="text-info"/>} />
+        </Col>
+      </Row>
+
+      <Row className="g-4">
+        <Col lg={8}>
+          <Card className="h-100 dashboard-card">
+            <Card.Header className="card-header-custom">Rendimiento de Ventas (Últimos 6 meses)</Card.Header>
+            <Card.Body>
+              <div style={{ height: '300px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.sales_performance}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
+                    <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                    <Legend />
+                    <Bar dataKey="ventas" fill="#0d6efd" name="Ventas" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        <Col lg={4}>
+          <Card className="h-100 dashboard-card">
+            <Card.Header className="card-header-custom">Actividad Reciente</Card.Header>
+            <Card.Body className="p-0">
+              <ListGroup variant="flush">
+                {data.recent_activity.length > 0 ? (
+                  data.recent_activity.map(item => {
+                    const config = movementConfig[item.movement_type] || movementConfig.adjustment;
+                    const IconComponent = config.icon;
+                    return (
+                      <ListGroup.Item key={item.id} className="d-flex align-items-center px-3 py-3 activity-item">
+                        <div className={`bg-${config.color}-subtle text-${config.color} rounded-circle d-flex align-items-center justify-content-center me-3 icon-circle`} >
+                          <IconComponent />
+                        </div>
+                        <div className="flex-grow-1">
+                          <div className="text-dark fw-bold">{config.text} de <strong>{item.product.name}</strong></div>
+                          <small className="text-muted">Cantidad: {Math.abs(item.quantity)}</small>
+                        </div>
+                        <div className="text-muted small ms-3 date-text">
+                          {new Date(item.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        </div>
+                      </ListGroup.Item>
+                    );
+                  })
+                ) : (
+                  <div className="text-center text-muted p-5">
+                    No hay actividad reciente.
+                  </div>
+                )}
+              </ListGroup>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row className="g-4 mt-2">
+        <Col>
+          <Card className="dashboard-card">
+            <Card.Header className="card-header-custom">
+              <h5 className="mb-0">
+                <FaExclamationTriangle className="text-warning me-2"/>
+                Productos con Stock Bajo
+              </h5>
+            </Card.Header>
+            <Card.Body className="p-0">
+              {data.low_stock_items.length > 0 ? (
+                <Table responsive hover className="mb-0 dashboard-table">
+                  <thead className="table-light">
+                    <tr>
+                      <th className="ps-3">Producto</th>
+                      <th>Sucursal</th>
+                      <th className="text-center">Stock Actual</th>
+                      <th className="text-center">Stock Mínimo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.low_stock_items.map(item => (
+                      <tr key={item.id}>
+                        <td className="ps-3 fw-bold">{item.product.name}</td>
+                        <td>{item.branch.name}</td>
+                        <td className="text-center text-danger fw-bold">{item.quantity}</td>
+                        <td className="text-center">{item.minimum_stock}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              ) : (
+                <div className="p-4 text-center text-muted">
+                  Excelente! No hay productos con stock bajo.
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
+  );
+};
+
+export default Dashboard;
+
