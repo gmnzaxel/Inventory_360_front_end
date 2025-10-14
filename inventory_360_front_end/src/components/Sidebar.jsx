@@ -82,8 +82,12 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
     >
       <div>
         <Link to="/" className="sidebar-header text-decoration-none">
-          <FaWarehouse className="nav-icon" />
-          <span>Inventory 360</span>
+          <img
+            src="/material-management.png"
+            alt="Inventory360"
+            className="brand-logo"
+          />
+          <span>Inventory360</span>
         </Link>
         <Nav className="flex-column">
           {visibleSections.map((section, index) => (
@@ -101,4 +105,3 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
 };
 
 export default Sidebar;
-

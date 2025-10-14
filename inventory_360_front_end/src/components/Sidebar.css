@@ -90,3 +90,17 @@
 .sidebar.collapsed .nav-icon {
   margin-right: 0;
 }
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: #fff;
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
