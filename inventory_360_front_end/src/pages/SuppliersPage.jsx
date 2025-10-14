@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { useAuth } from '../context/AuthContext';
 import { Container, Row, Col, Card, Button, Spinner, Alert, Modal, Form } from 'react-bootstrap';
@@ -8,8 +8,12 @@ import { FaPlus, FaEdit, FaTrash, FaTruck, FaUserTie, FaPhone, FaEnvelope } from
 import { CONTROL_PREFIX } from '../config/api';
 import { validateName, validatePhone, validateEmail } from '../utils/validation';
 
+const emptySupplier = { name: '', contact_person: '', phone: '', email: '' };
+
 const SuppliersPage = () => {
   const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'admin';
+
   const [suppliers, setSuppliers] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -19,14 +23,12 @@ const SuppliersPage = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentSupplier, setCurrentSupplier] = useState({ name: '', contact_person: '', phone: '', email: '' });
+  const [currentSupplier, setCurrentSupplier] = useState(emptySupplier);
   const [formErrors, setFormErrors] = useState({});
-  const [modalError, setModalError] = useState('');
+  const [modalError, setModalError] = useState(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState(null);
-
-  const isAdmin = currentUser?.role === 'admin';
 
   const fetchSuppliers = useCallback(async () => {
     setLoading(true);
@@ -37,7 +39,7 @@ const SuppliersPage = () => {
       setSuppliers(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudieron cargar los proveedores.'));
+      setError(parseApiError(err, 'No se pudieron cargar los proveedores.'));
     } finally {
       setLoading(false);
     }
@@ -50,20 +52,22 @@ const SuppliersPage = () => {
   const handleCloseModal = () => {
     setShowModal(false);
     setIsEditMode(false);
-    setCurrentSupplier({ name: '', contact_person: '', phone: '', email: '' });
+    setCurrentSupplier(emptySupplier);
     setFormErrors({});
-    setModalError('');
+    setModalError(null);
   };
 
   const openCreateModal = () => {
+    if (!isAdmin) return;
     setIsEditMode(false);
-    setCurrentSupplier({ name: '', contact_person: '', phone: '', email: '' });
+    setCurrentSupplier(emptySupplier);
     setFormErrors({});
-    setModalError('');
+    setModalError(null);
     setShowModal(true);
   };
 
   const openEditModal = (supplier) => {
+    if (!isAdmin) return;
     setIsEditMode(true);
     setCurrentSupplier({
       id: supplier.id,
@@ -73,7 +77,7 @@ const SuppliersPage = () => {
       email: supplier.email || '',
     });
     setFormErrors({});
-    setModalError('');
+    setModalError(null);
     setShowModal(true);
   };
 
@@ -87,7 +91,7 @@ const SuppliersPage = () => {
       if (contactError) errors.contact_person = contactError;
     }
 
-    const phoneError = validatePhone(supplier.phone, { label: 'Teléfono', digits: 10 });
+    const phoneError = validatePhone(supplier.phone, { label: 'Telefono', digits: 10 });
     if (phoneError) errors.phone = phoneError;
 
     const emailError = validateEmail(supplier.email, { label: 'Email' });
@@ -96,48 +100,48 @@ const SuppliersPage = () => {
     return errors;
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
     setCurrentSupplier((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setModalError('');
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setModalError(null);
 
-    const validationErrors = validateSupplier(currentSupplier);
+    const sanitized = {
+      ...currentSupplier,
+      name: currentSupplier.name.trim(),
+      contact_person: currentSupplier.contact_person?.trim() || '',
+      phone: currentSupplier.phone.trim(),
+      email: currentSupplier.email.trim(),
+    };
+
+    const validationErrors = validateSupplier(sanitized);
     setFormErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
 
     try {
       if (isEditMode) {
-        await api.put(`${CONTROL_PREFIX}/suppliers/${currentSupplier.id}/`, currentSupplier);
+        await api.put(`${CONTROL_PREFIX}/suppliers/${sanitized.id}/`, sanitized);
       } else {
-        await api.post(`${CONTROL_PREFIX}/suppliers/`, currentSupplier);
+        await api.post(`${CONTROL_PREFIX}/suppliers/`, sanitized);
       }
-      fetchSuppliers();
       handleCloseModal();
+      fetchSuppliers();
     } catch (err) {
-      const message = formatApiError(err, 'Error al guardar el proveedor. Revisa los campos.');
-      setModalError(message);
-      const data = err.response?.data;
-      if (data && typeof data === 'object') {
-        const fieldErrors = {};
-        ['name', 'contact_person', 'phone', 'email'].forEach((field) => {
-          if (data[field]) {
-            const value = Array.isArray(data[field]) ? data[field].join(' ') : String(data[field]);
-            fieldErrors[field] = value;
-          }
-        });
-        if (Object.keys(fieldErrors).length) {
-          setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
-        }
+      const apiError = parseApiError(err, 'Error al guardar el proveedor. Revisa los campos.');
+      setModalError(apiError);
+      const details = apiError.details || {};
+      if (Object.keys(details).length) {
+        setFormErrors((prev) => ({ ...prev, ...details }));
       }
     }
   };
 
   const openDeleteModal = (supplier) => {
+    if (!isAdmin) return;
     setSupplierToDelete(supplier);
     setShowDeleteModal(true);
   };
@@ -154,13 +158,26 @@ const SuppliersPage = () => {
       closeDeleteModal();
       fetchSuppliers();
     } catch (err) {
-      alert(formatApiError(err, 'No se pudo eliminar el proveedor.'));
+      setError(parseApiError(err, 'No se pudo eliminar el proveedor.'));
     }
   };
 
   const renderContent = () => {
     if (loading) return <Col className="text-center py-5"><Spinner animation="border" /></Col>;
-    if (error) return <Col><Alert variant="danger">{error}</Alert></Col>;
+    if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
+      return (
+        <Col>
+          <Alert variant="danger">
+            <div className="fw-semibold">{details.title || 'Error'}</div>
+            <div>{details.message}</div>
+            {details.requestId && (
+              <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+            )}
+          </Alert>
+        </Col>
+      );
+    }
     if (suppliers.length === 0) return <Col className="text-center py-5"><p>No hay proveedores para mostrar.</p></Col>;
 
     return suppliers.map((supplier, index) => (
@@ -185,6 +202,8 @@ const SuppliersPage = () => {
     ));
   };
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
   return (
     <>
       <Container fluid className="page-container">
@@ -198,18 +217,47 @@ const SuppliersPage = () => {
             </Col>
           )}
         </Row>
-        <Row>{renderContent()}</Row>
+        <Card className="shadow-sm animated-card">
+          <Card.Body className="p-3">
+            <Row>
+              <Col md={12} className="d-flex justify-content-between align-items-center mb-3">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="text-muted">tamaño página:</span>
+                  <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                  </Form.Select>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                  <span className="text-muted">Página {page} de {totalPages}</span>
+                  <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
+                </div>
+              </Col>
+            </Row>
+            <Row>{renderContent()}</Row>
+          </Card.Body>
+        </Card>
       </Container>
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>{isEditMode ? 'Editar Proveedor' : 'Nuevo Proveedor'}</Modal.Title>
+          <Modal.Title>{isEditMode ? 'Editar proveedor' : 'Crear proveedor'}</Modal.Title>
         </Modal.Header>
-        <Form onSubmit={handleSubmit} noValidate>
-          <Modal.Body>
-            {modalError && <Alert variant="danger">{modalError}</Alert>}
+        <Modal.Body>
+          {modalError && (
+            <Alert variant="danger">
+              <div className="fw-semibold">{modalError.title || 'Error'}</div>
+              <div>{modalError.message}</div>
+              {modalError.requestId && (
+                <div className="small text-muted">ID de seguimiento: {modalError.requestId}</div>
+              )}
+            </Alert>
+          )}
+          <Form onSubmit={handleSubmit} noValidate>
             <Form.Group className="mb-3">
-              <Form.Label>Nombre</Form.Label>
+              <Form.Label>Nombre del proveedor</Form.Label>
               <Form.Control
                 type="text"
                 name="name"
@@ -221,7 +269,7 @@ const SuppliersPage = () => {
               <Form.Control.Feedback type="invalid">{formErrors.name}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Persona de Contacto</Form.Label>
+              <Form.Label>Persona de contacto</Form.Label>
               <Form.Control
                 type="text"
                 name="contact_person"
@@ -231,48 +279,50 @@ const SuppliersPage = () => {
               />
               <Form.Control.Feedback type="invalid">{formErrors.contact_person}</Form.Control.Feedback>
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Teléfono</Form.Label>
-              <Form.Control
-                type="text"
-                name="phone"
-                value={currentSupplier.phone}
-                onChange={handleInputChange}
-                isInvalid={!!formErrors.phone}
-                required
-              />
-              <Form.Control.Feedback type="invalid">{formErrors.phone}</Form.Control.Feedback>
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>Email</Form.Label>
-              <Form.Control
-                type="email"
-                name="email"
-                value={currentSupplier.email}
-                onChange={handleInputChange}
-                isInvalid={!!formErrors.email}
-                required
-              />
-              <Form.Control.Feedback type="invalid">{formErrors.email}</Form.Control.Feedback>
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-            <Button variant="primary" type="submit">{isEditMode ? 'Guardar cambios' : 'Guardar proveedor'}</Button>
-          </Modal.Footer>
-        </Form>
+            <Row>
+              <Col md={6} className="mb-3">
+                <Form.Label>Telefono</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="phone"
+                  value={currentSupplier.phone}
+                  onChange={handleInputChange}
+                  isInvalid={!!formErrors.phone}
+                  required
+                />
+                <Form.Control.Feedback type="invalid">{formErrors.phone}</Form.Control.Feedback>
+              </Col>
+              <Col md={6} className="mb-3">
+                <Form.Label>Email</Form.Label>
+                <Form.Control
+                  type="email"
+                  name="email"
+                  value={currentSupplier.email}
+                  onChange={handleInputChange}
+                  isInvalid={!!formErrors.email}
+                  required
+                />
+                <Form.Control.Feedback type="invalid">{formErrors.email}</Form.Control.Feedback>
+              </Col>
+            </Row>
+            <div className="d-flex justify-content-end gap-2">
+              <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
+              <Button variant="primary" type="submit">{isEditMode ? 'Guardar cambios' : 'Crear proveedor'}</Button>
+            </div>
+          </Form>
+        </Modal.Body>
       </Modal>
 
       <Modal show={showDeleteModal} onHide={closeDeleteModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminación</Modal.Title>
+          <Modal.Title>Confirmar eliminacion</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          ¿Estás seguro de que quieres eliminar al proveedor <strong>{supplierToDelete?.name}</strong>? Esta acción no se puede deshacer.
+          Estas seguro de que quieres eliminar a <strong>{supplierToDelete?.name}</strong>?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={closeDeleteModal}>Cancelar</Button>
-          <Button variant="danger" onClick={handleDelete}>Eliminar</Button>
+          <Button variant="danger" onClick={handleDelete} disabled={!isAdmin}>Eliminar</Button>
         </Modal.Footer>
       </Modal>
     </>

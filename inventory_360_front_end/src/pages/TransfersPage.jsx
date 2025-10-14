@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { Container, Row, Col, Card, Button, Table, Spinner, Alert, Form } from 'react-bootstrap';
-import { FaPlus, } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
 import TransferModal from '../components/TransferModal';
 import { CONTROL_PREFIX } from '../config/api';
 
 const TransfersPage = () => {
-  const { currentUser } = useAuth();
+  const { hasPermission } = useAuth();
+  const canCreateTransfers = hasPermission('transferencias:execute');
+
   const [transfers, setTransfers] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -24,13 +26,13 @@ const TransfersPage = () => {
     setError(null);
     try {
       const response = await api.get(`${CONTROL_PREFIX}/movements/`, {
-        params: { movement_type: 'transfer', page, page_size: pageSize }
+        params: { movement_type: 'transfer', page, page_size: pageSize },
       });
       const { items, count } = extractListAndCount(response.data);
       setTransfers(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudieron cargar las transferencias.'));
+      setError(parseApiError(err, 'No se pudieron cargar las transferencias.'));
     } finally {
       setLoading(false);
     }
@@ -40,11 +42,29 @@ const TransfersPage = () => {
     fetchTransfers();
   }, [fetchTransfers]);
 
-  const handleSuccess = () => fetchTransfers();
+  const handleSuccess = () => {
+    fetchTransfers();
+    setError(null);
+  };
 
   const renderTableContent = () => {
     if (loading) return <tr><td colSpan="6" className="text-center py-5"><Spinner /></td></tr>;
-    if (error) return <tr><td colSpan="6"><Alert variant="danger" className="m-3">{error}</Alert></td></tr>;
+    if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
+      return (
+        <tr>
+          <td colSpan="6">
+            <Alert variant="danger" className="m-3">
+              <div className="fw-semibold">{details.title || 'Error'}</div>
+              <div>{details.message}</div>
+              {details.requestId && (
+                <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+              )}
+            </Alert>
+          </td>
+        </tr>
+      );
+    }
     if (transfers.length === 0) return <tr><td colSpan="6" className="text-center py-5">No hay transferencias registradas.</td></tr>;
 
     return transfers.map((item, index) => (
@@ -66,7 +86,13 @@ const TransfersPage = () => {
       <Container fluid className="page-container">
         <Row className="align-items-center mb-4 animated-header">
           <Col><h2 className="h4 mb-0">Transferencias entre Sucursales</h2></Col>
-          <Col xs="auto"><Button variant="primary" onClick={() => setShowModal(true)} disabled={!currentUser?.can_transfer}><FaPlus className="me-2" />Crear Transferencia</Button></Col>
+          <Col xs="auto">
+            {canCreateTransfers && (
+              <Button variant="primary" onClick={() => setShowModal(true)}>
+                <FaPlus className="me-2" />Crear transferencia
+              </Button>
+            )}
+          </Col>
         </Row>
         <Card className="shadow-sm animated-card">
           <Card.Body className="p-0">
@@ -83,36 +109,27 @@ const TransfersPage = () => {
               </thead>
               <tbody>{renderTableContent()}</tbody>
             </Table>
+            <div className="d-flex justify-content-between align-items-center p-3">
+              <div className="d-flex align-items-center gap-2">
+                <span className="text-muted">tamaño página:</span>
+                <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </Form.Select>
+              </div>
+              <div className="d-flex align-items-center gap-2">
+                <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                <span className="text-muted">Página {page} de {totalPages}</span>
+                <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
+              </div>
+            </div>
           </Card.Body>
         </Card>
       </Container>
       <TransferModal show={showModal} handleClose={() => setShowModal(false)} onSuccess={handleSuccess} />
-      <div className="d-flex justify-content-between align-items-center p-3">
-        <div className="d-flex align-items-center gap-2">
-          <span className="text-muted">Tamaño página:</span>
-          <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-          </Form.Select>
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</Button>
-          <span className="text-muted">Página {page} de {totalPages}</span>
-          <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
-        </div>
-      </div>
     </>
   );
 };
 
 export default TransfersPage;
-
-
-
-
-
-
-
-
-

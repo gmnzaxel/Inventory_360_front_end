@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { parseApiError } from '../utils/errors';
 
 const BASE_URL = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
@@ -73,6 +74,9 @@ api.interceptors.response.use(
       } finally {
         isRefreshing = false;
       }
+    }
+    if (!error.inventoryError) {
+      error.inventoryError = parseApiError(error);
     }
     return Promise.reject(error);
   }

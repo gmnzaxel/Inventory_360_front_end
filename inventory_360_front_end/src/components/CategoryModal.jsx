@@ -1,19 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { validateName, validateOptionalText } from '../utils/validation';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { CONTROL_PREFIX } from '../config/api';
 
 const defaultForm = { name: '', description: '' };
 
-const CategoryModal = ({ show, handleClose, onSuccess, categoryToEdit }) => {
+const CategoryModal = ({
+  show,
+  handleClose,
+  onSuccess,
+  categoryToEdit,
+  existingCategories = [],
+}) => {
   const [formData, setFormData] = useState(defaultForm);
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
-  const isEditMode = !!categoryToEdit;
+  const isEditMode = Boolean(categoryToEdit);
+  const comparableCategories = useMemo(
+    () => (Array.isArray(existingCategories) ? existingCategories : []),
+    [existingCategories]
+  );
 
   useEffect(() => {
     if (show) {
@@ -26,20 +36,56 @@ const CategoryModal = ({ show, handleClose, onSuccess, categoryToEdit }) => {
         setFormData(defaultForm);
       }
       setFormErrors({});
-      setError('');
+      setError(null);
     }
-  }, [show, categoryToEdit, isEditMode]);
+  }, [show, isEditMode, categoryToEdit]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const checkDuplicateName = (rawName) => {
+    const candidate = (rawName || '').trim().toLowerCase();
+    if (!candidate) return null;
+    const duplicate = comparableCategories.some(
+      (category) =>
+        category &&
+        category.id !== (categoryToEdit?.id ?? null) &&
+        (category.name || '').trim().toLowerCase() === candidate
+    );
+    if (duplicate) {
+      return `Ya existe '${rawName.trim()}' en esta empresa.`;
+    }
+    return null;
+  };
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (name === 'name') {
+      const duplicateMessage = checkDuplicateName(value);
+      setFormErrors((prev) => ({
+        ...prev,
+        name: duplicateMessage || prev?.name,
+      }));
+    }
+  };
+
+  const handleBlur = (event) => {
+    if (event.target.name !== 'name') return;
+    const duplicateMessage = checkDuplicateName(event.target.value);
+    setFormErrors((prev) => ({
+      ...prev,
+      name: duplicateMessage || prev?.name,
+    }));
   };
 
   const validateForm = () => {
     const errors = {};
-    const nameError = validateName(formData.name, { label: 'Nombre de la categoría', min: 3, max: 80 });
-    if (nameError) errors.name = nameError;
+    const nameError = validateName(formData.name, { label: 'Nombre de la categoria', min: 3, max: 80 });
+    if (nameError) {
+      errors.name = nameError;
+    } else {
+      const duplicateMessage = checkDuplicateName(formData.name);
+      if (duplicateMessage) errors.name = duplicateMessage;
+    }
 
     const descriptionError = validateOptionalText(formData.description, { label: 'Descripción', max: 250 });
     if (descriptionError) errors.description = descriptionError;
@@ -47,9 +93,9 @@ const CategoryModal = ({ show, handleClose, onSuccess, categoryToEdit }) => {
     return errors;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError(null);
 
     const validationErrors = validateForm();
     setFormErrors(validationErrors);
@@ -65,7 +111,12 @@ const CategoryModal = ({ show, handleClose, onSuccess, categoryToEdit }) => {
       onSuccess();
       handleClose();
     } catch (err) {
-      setError(formatApiError(err, 'Ocurrió un error al guardar.'));
+      const apiError = err.inventoryError || parseApiError(err, 'Ocurrió un error al guardar la categoría.', 'Error al guardar');
+      setError(apiError);
+      const details = apiError.details || {};
+      if (Object.keys(details).length) {
+        setFormErrors((prev) => ({ ...prev, ...details }));
+      }
     } finally {
       setLoading(false);
     }
@@ -74,17 +125,27 @@ const CategoryModal = ({ show, handleClose, onSuccess, categoryToEdit }) => {
   const handleExited = () => {
     setFormData(defaultForm);
     setFormErrors({});
-    setError('');
+    setError(null);
   };
+
+  const title = isEditMode ? 'Editar Categoria' : 'Nueva Categoria';
 
   return (
     <Modal show={show} onHide={handleClose} centered onExited={handleExited}>
       <Modal.Header closeButton>
-        <Modal.Title>{isEditMode ? 'Editar Categoría' : 'Nueva Categoría'}</Modal.Title>
+        <Modal.Title>{title}</Modal.Title>
       </Modal.Header>
       <Form onSubmit={handleSubmit} noValidate>
         <Modal.Body>
-          {error && <Alert variant="danger">{error}</Alert>}
+          {error && (
+            <Alert variant="danger">
+              <div className="fw-semibold">{error.title || 'Error'}</div>
+              <div>{error.message}</div>
+              {error.requestId && (
+                <div className="small text-muted">ID de seguimiento: {error.requestId}</div>
+              )}
+            </Alert>
+          )}
           <Form.Group className="mb-3">
             <Form.Label>Nombre</Form.Label>
             <Form.Control
@@ -92,6 +153,7 @@ const CategoryModal = ({ show, handleClose, onSuccess, categoryToEdit }) => {
               name="name"
               value={formData.name}
               onChange={handleChange}
+              onBlur={handleBlur}
               isInvalid={!!formErrors.name}
               required
               autoFocus

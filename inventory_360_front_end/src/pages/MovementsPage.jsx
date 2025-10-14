@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { Container, Row, Col, Card, Table, Badge, Form, InputGroup, Spinner, Alert, Button } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaDownload, FaCalendar } from 'react-icons/fa';
@@ -16,7 +16,7 @@ const quickRanges = [
     },
   },
   {
-    label: 'Ultimos 7 dias',
+    label: 'Últimos 7 dias',
     compute: () => {
       const end = new Date();
       const start = new Date();
@@ -70,7 +70,7 @@ const MovementsPage = () => {
       setMovements(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudo cargar el historial de movimientos.'));
+      setError(parseApiError(err, 'No se pudo cargar el historial de movimientos.'));
     } finally {
       setLoading(false);
     }
@@ -127,8 +127,8 @@ const MovementsPage = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (e) {
-      setError('No se pudo exportar el archivo.');
+    } catch (err) {
+      setError(parseApiError(err, 'No se pudo exportar el archivo.'));
     }
   };
 
@@ -147,7 +147,22 @@ const MovementsPage = () => {
 
   const renderTableContent = () => {
     if (loading) return <tr><td colSpan="6" className="text-center py-5"><Spinner /></td></tr>;
-    if (error) return <tr><td colSpan="6"><Alert variant="danger" className="m-3">{error}</Alert></td></tr>;
+    if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
+      return (
+        <tr>
+          <td colSpan="6">
+            <Alert variant="danger" className="m-3">
+              <div className="fw-semibold">{details.title || 'Error'}</div>
+              <div>{details.message}</div>
+              {details.requestId && (
+                <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+              )}
+            </Alert>
+          </td>
+        </tr>
+      );
+    }
     if (movements.length === 0) return <tr><td colSpan="6" className="text-center py-5">No se encontraron movimientos con los filtros aplicados.</td></tr>;
 
     return movements.map((movement, index) => {

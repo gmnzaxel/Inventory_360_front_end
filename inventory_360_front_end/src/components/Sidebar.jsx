@@ -27,9 +27,10 @@ const NavItem = ({ to, icon, text, isSidebarOpen }) => {
 
 const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
   const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'admin';
   const menuSections = [
     {
-      title: "Gestion",
+      title: "Gestión",
       items: [
         { to: "/", icon: <FaTachometerAlt className="nav-icon" />, text: "Dashboard" },
         { to: "/products", icon: <FaBox className="nav-icon" />, text: "Productos" },
@@ -56,20 +57,22 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
     {
       title: "Administracion",
       items: [
-        { to: "/roles", icon: <FaUserShield className="nav-icon" />, text: "Gestion de Roles" },
+        { to: "/roles", icon: <FaUserShield className="nav-icon" />, text: "Gestión de Roles", adminOnly: true },
       ]
     }
   ];
 
-  // Ocultar entradas de administracion a usuarios no administradores
-  const visibleSections = (currentUser?.role === 'admin')
-    ? menuSections
-    : menuSections
-        .map(section => ({
-          ...section,
-          items: section.items.filter(i => i.to !== '/roles')
-        }))
-        .filter(section => section.items.length > 0);
+  const visibleSections = menuSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (item.to === '/roles' && !isAdmin) {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <div 

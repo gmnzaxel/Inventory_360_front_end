@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { useAuth } from '../context/AuthContext';
 import { Container, Row, Col, Card, Button, Table, Badge, Form, InputGroup, Image, Spinner, Alert } from 'react-bootstrap';
-import { FaSearch, FaFilter, FaWrench } from 'react-icons/fa';
+import { FaSearch, FaWrench } from 'react-icons/fa';
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import { CONTROL_PREFIX } from '../config/api';
 
 const StockPage = () => {
-  const { currentUser } = useAuth();
+  const { hasPermission } = useAuth();
+  const canAdjustStock = hasPermission('ajustes:execute');
+
   const [stockItems, setStockItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [selectedStockItem, setSelectedStockItem] = useState(null);
 
@@ -23,22 +27,25 @@ const StockPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`${CONTROL_PREFIX}/stocks/`, { params: { page, page_size: pageSize } });
+      const params = { page, page_size: pageSize };
+      if (searchTerm) params.search = searchTerm;
+      const response = await api.get(`${CONTROL_PREFIX}/stocks/`, { params });
       const { items, count } = extractListAndCount(response.data);
       setStockItems(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudo cargar el inventario.'));
+      setError(parseApiError(err, 'No se pudo cargar el inventario.'));
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, searchTerm]);
 
   useEffect(() => {
     fetchStock();
   }, [fetchStock]);
 
   const handleShowAdjustmentModal = (item) => {
+    if (!canAdjustStock) return;
     setSelectedStockItem(item);
     setShowAdjustmentModal(true);
   };
@@ -50,11 +57,12 @@ const StockPage = () => {
 
   const handleSuccess = () => {
     fetchStock();
+    setError(null);
   };
 
   const getStockStatus = (item) => {
-    if (item.quantity <= 0) return { variant: 'danger', text: 'Sin Stock' };
-    if (item.is_low_stock) return { variant: 'warning', text: 'Bajo Stock' };
+    if (item.quantity <= 0) return { variant: 'danger', text: 'Sin stock' };
+    if (item.is_low_stock) return { variant: 'warning', text: 'Bajo stock' };
     return { variant: 'success', text: 'OK' };
   };
 
@@ -68,9 +76,18 @@ const StockPage = () => {
     }
 
     if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
       return (
         <tr>
-          <td colSpan="6"><Alert variant="danger" className="m-3">{error}</Alert></td>
+          <td colSpan="6">
+            <Alert variant="danger" className="m-3">
+              <div className="fw-semibold">{details.title || 'Error'}</div>
+              <div>{details.message}</div>
+              {details.requestId && (
+                <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+              )}
+            </Alert>
+          </td>
         </tr>
       );
     }
@@ -90,7 +107,7 @@ const StockPage = () => {
           <td className="ps-3">
             <div className="d-flex align-items-center">
               <Image
-                src={item.product?.image || `https://ui-avatars.com/api/?name=${item.product?.name}&background=random`}
+                src={item.product?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product?.name || 'Producto')}&background=random`}
                 roundedCircle
                 width="40"
                 height="40"
@@ -109,8 +126,8 @@ const StockPage = () => {
             <Button
               variant="outline-primary"
               size="sm"
-              title="Ajustar Stock"
-              disabled={!currentUser?.can_adjust}
+              title="Ajustar stock"
+              disabled={!canAdjustStock}
               onClick={() => handleShowAdjustmentModal(item)}
             >
               <FaWrench />
@@ -138,15 +155,11 @@ const StockPage = () => {
               <Col md={6} lg={4}>
                 <InputGroup>
                   <InputGroup.Text><FaSearch /></InputGroup.Text>
-                  <Form.Control placeholder="Buscar por producto..." />
-                </InputGroup>
-              </Col>
-              <Col md={6} lg={3}>
-                <InputGroup>
-                  <InputGroup.Text><FaFilter /></InputGroup.Text>
-                  <Form.Select>
-                    <option value="">Todas las sucursales</option>
-                  </Form.Select>
+                  <Form.Control
+                    placeholder="Buscar por producto..."
+                    value={searchTerm}
+                    onChange={(e) => { setPage(1); setSearchTerm(e.target.value); }}
+                  />
                 </InputGroup>
               </Col>
             </Row>
@@ -158,8 +171,8 @@ const StockPage = () => {
                 <tr>
                   <th className="py-3 ps-3">Producto</th>
                   <th>Sucursal</th>
-                  <th className="text-center">Cantidad Actual</th>
-                  <th className="text-center">Stock Minimo</th>
+                  <th className="text-center">Cantidad actual</th>
+                  <th className="text-center">Stock mínimo</th>
                   <th className="text-center">Estado</th>
                   <th className="text-center">Acciones</th>
                 </tr>
@@ -168,7 +181,7 @@ const StockPage = () => {
             </Table>
             <div className="d-flex justify-content-between align-items-center p-3">
               <div className="d-flex align-items-center gap-2">
-                <span className="text-muted">Tamaño página:</span>
+                <span className="text-muted">tamaño página:</span>
                 <Form.Select
                   size="sm"
                   style={{ width: 'auto' }}

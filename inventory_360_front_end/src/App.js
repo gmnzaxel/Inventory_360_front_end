@@ -45,15 +45,15 @@ const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
         <main className="main-content">
           <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/products" element={<ProductsPage />} />
-          <Route path="/movements" element={<MovementsPage />} />
-          <Route path="/sales" element={<SalesPage />} />
-          <Route path="/purchases" element={<PurchasesPage />} />
-          <Route path="/transfers" element={<TransfersPage />} />
-          <Route path="/branches" element={<BranchesPage />} />
-          <Route path="/stock" element={<StockPage />} />
-          <Route path="/suppliers" element={<SuppliersPage />} />
-          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/products" element={<RoleGuard requiredPermissions={["productos:read"]}><ProductsPage /></RoleGuard>} />
+          <Route path="/movements" element={<RoleGuard anyPermissions={["ventas:execute","compras:execute","ajustes:execute","transferencias:execute"]}><MovementsPage /></RoleGuard>} />
+          <Route path="/sales" element={<RoleGuard requiredPermissions={["ventas:execute"]}><SalesPage /></RoleGuard>} />
+          <Route path="/purchases" element={<RoleGuard requiredPermissions={["compras:execute"]}><PurchasesPage /></RoleGuard>} />
+          <Route path="/transfers" element={<RoleGuard requiredPermissions={["transferencias:execute"]}><TransfersPage /></RoleGuard>} />
+          <Route path="/branches" element={<RoleGuard allowedRoles={["admin"]}><BranchesPage /></RoleGuard>} />
+          <Route path="/stock" element={<RoleGuard requiredPermissions={["productos:read"]}><StockPage /></RoleGuard>} />
+          <Route path="/suppliers" element={<RoleGuard allowedRoles={["admin"]}><SuppliersPage /></RoleGuard>} />
+          <Route path="/categories" element={<RoleGuard allowedRoles={["admin"]}><CategoriesPage /></RoleGuard>} />
           <Route path="/roles" element={
             <RoleGuard allowedRoles={["admin"]}>
               <RolesPage />
@@ -97,4 +97,9 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
 

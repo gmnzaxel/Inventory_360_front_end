@@ -13,10 +13,11 @@
 body[data-theme='dark'] {
   --bg-color: #121212;
   --text-color: #e0e0e0;
-  --sidebar-bg: #1e1e1e;
+  --sidebar-bg: #17191d;
+  --sidebar-border: #2a2d34;
   --sidebar-text: #a0a0a0;
   --sidebar-hover-bg: #333333;
-  --header-bg: #1e1e1e;
+  --header-bg: #1f2127;
   --card-bg: #1e1e1e;
   --card-header-bg: #2c2c2c;
   --border-color: #444444;

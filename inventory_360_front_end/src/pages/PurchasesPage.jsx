@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { Container, Row, Col, Card, Button, Table, Badge, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
 import { FaPlus, FaSearch, FaEye, FaEdit, FaTrash, FaCalendar, FaDownload } from 'react-icons/fa';
@@ -9,10 +9,10 @@ import MovementModal from '../components/MovementModal';
 import MovementDetailModal from '../components/MovementDetailModal';
 import { useAuth } from '../context/AuthContext';
 
-
-
 const PurchasesPage = () => {
-  const { currentUser } = useAuth();
+  const { hasPermission } = useAuth();
+  const canManagePurchases = hasPermission('compras:execute');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [purchases, setPurchases] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -46,26 +46,29 @@ const PurchasesPage = () => {
       setPurchases(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudo cargar el historial de compras.'));
+      setError(parseApiError(err, 'No se pudo cargar el historial de compras.'));
     } finally {
       setLoading(false);
     }
   }, [page, pageSize, startDate, endDate, searchTerm]);
-  
+
   useEffect(() => {
     fetchPurchases();
   }, [fetchPurchases]);
 
   const handleSuccess = () => {
     fetchPurchases();
+    setError(null);
   };
 
   const handleShowCreateModal = () => {
+    if (!canManagePurchases) return;
     setMovementToEdit(null);
     setShowCreateEditModal(true);
   };
 
   const handleShowEditModal = (movement) => {
+    if (!canManagePurchases) return;
     setMovementToEdit(movement);
     setShowCreateEditModal(true);
   };
@@ -85,6 +88,7 @@ const PurchasesPage = () => {
   };
 
   const openDeleteModal = (movement) => {
+    if (!canManagePurchases) return;
     setMovementToDelete(movement);
     setShowDeleteModal(true);
   };
@@ -101,8 +105,7 @@ const PurchasesPage = () => {
       closeDeleteModal();
       fetchPurchases();
     } catch (err) {
-      console.error('Error al eliminar la compra', err);
-      alert('No se pudo eliminar la compra.');
+      setError(parseApiError(err, 'No se pudo eliminar la compra.'));
     }
   };
 
@@ -117,39 +120,64 @@ const PurchasesPage = () => {
       const link = document.createElement('a');
       link.href = url;
       const parts = ['compras', startDate ? `desde-${startDate}` : '', endDate ? `hasta-${endDate}` : ''].filter(Boolean);
-      link.download = parts.join('_') + '.csv';
+      link.download = parts.join('_') || 'compras.csv';
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (e) {
-      alert('No se pudo exportar compras.');
+    } catch (err) {
+      setError(parseApiError(err, 'No se pudo exportar compras.'));
     }
   };
 
   const renderTableContent = () => {
     if (loading) return <tr><td colSpan="7" className="text-center py-5"><Spinner /></td></tr>;
-    if (error) return <tr><td colSpan="7"><Alert variant="danger" className="m-3">{error}</Alert></td></tr>;
+    if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
+      return (
+        <tr>
+          <td colSpan="7">
+            <Alert variant="danger" className="m-3">
+              <div className="fw-semibold">{details.title || 'Error'}</div>
+              <div>{details.message}</div>
+              {details.requestId && (
+                <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+              )}
+            </Alert>
+          </td>
+        </tr>
+      );
+    }
     if (purchases.length === 0) return <tr><td colSpan="7" className="text-center py-5">No hay compras registradas.</td></tr>;
 
-    return purchases.map((purchase, index) => (
-      <tr key={purchase.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
-        <td className="ps-3 fw-bold">{purchase.product?.name}</td>
-        <td>{purchase.supplier?.name || 'N/A'}</td>
-        <td className="text-center text-success fw-bold">+{purchase.quantity}</td>
-        <td>{new Date(purchase.date).toLocaleDateString()}</td>
-        <td className="text-end">${parseFloat(purchase.unit_price * purchase.quantity || 0).toFixed(2)}</td>
-        <td className="text-center"><Badge pill bg="success">Recibido</Badge></td>
-        <td className="text-center">
-          <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowDetails(purchase)}><FaEye /></Button>
-          <Button variant="outline-primary" size="sm" className="me-2" disabled={!currentUser?.can_purchase} onClick={() => handleShowEditModal(purchase)}><FaEdit /></Button>
-          <Button variant="outline-danger" size="sm" disabled={!currentUser?.can_purchase} onClick={() => openDeleteModal(purchase)}><FaTrash /></Button>
-        </td>
-      </tr>
-    ));
+    return purchases.map((purchase, index) => {
+      const quantity = Math.abs(Number(purchase.quantity) || 0);
+      const total = parseFloat((purchase.unit_price || 0) * quantity).toFixed(2);
+
+      return (
+        <tr key={purchase.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
+          <td className="ps-3 fw-bold">{purchase.product?.name}</td>
+          <td>{purchase.supplier?.name || 'N/A'}</td>
+          <td className="text-center fw-semibold">{quantity}</td>
+          <td>{new Date(purchase.date).toLocaleDateString()}</td>
+          <td className="text-end">${total}</td>
+          <td className="text-center"><Badge pill bg="success">Recibido</Badge></td>
+          <td className="text-center">
+            <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowDetails(purchase)}><FaEye /></Button>
+            {canManagePurchases && (
+              <>
+                <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleShowEditModal(purchase)}><FaEdit /></Button>
+                <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(purchase)}><FaTrash /></Button>
+              </>
+            )}
+          </td>
+        </tr>
+      );
+    });
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
   return (
     <>
       <Container fluid className="page-container">
@@ -159,10 +187,12 @@ const PurchasesPage = () => {
             <Button variant="outline-primary" onClick={handleExport} title="Exportar CSV">
               <FaDownload />
             </Button>
-            <Button variant="primary" onClick={handleShowCreateModal} disabled={!currentUser?.can_purchase}>
-              <FaPlus className="me-2" />
-              Nueva Compra
-            </Button>
+            {canManagePurchases && (
+              <Button variant="primary" onClick={handleShowCreateModal}>
+                <FaPlus className="me-2" />
+                Nueva compra
+              </Button>
+            )}
           </Col>
         </Row>
         <Card className="shadow-sm animated-card">
@@ -185,7 +215,7 @@ const PurchasesPage = () => {
                   <Form.Control type="date" value={endDate} onChange={(e) => { setPage(1); setEndDate(e.target.value); }} />
                 </InputGroup>
               </Col>
-                            <Col md={12} className="d-flex flex-wrap gap-2">
+              <Col md={12} className="d-flex flex-wrap gap-2">
                 <Button size="sm" variant="outline-secondary" onClick={() => {
                   const today = new Date().toISOString().slice(0, 10);
                   applyRange(today, today);
@@ -195,7 +225,7 @@ const PurchasesPage = () => {
                   const startValue = new Date(endValue);
                   startValue.setDate(startValue.getDate() - 6);
                   applyRange(startValue.toISOString().slice(0, 10), endValue.toISOString().slice(0, 10));
-                }}>Ultimos 7 dias</Button>
+                }}>Últimos 7 dias</Button>
                 <Button size="sm" variant="outline-secondary" onClick={() => {
                   const endValue = new Date();
                   const startValue = new Date(endValue.getFullYear(), endValue.getMonth(), 1);
@@ -227,7 +257,7 @@ const PurchasesPage = () => {
             </Table>
             <div className="d-flex justify-content-between align-items-center p-3">
               <div className="d-flex align-items-center gap-2">
-                <span className="text-muted">Tamaño página:</span>
+                <span className="text-muted">tamaño página:</span>
                 <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
                   <option value="10">10</option>
                   <option value="20">20</option>
@@ -235,9 +265,9 @@ const PurchasesPage = () => {
                 </Form.Select>
               </div>
               <div className="d-flex align-items-center gap-2">
-                <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</Button>
+                <Button variant="outline-secondary" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
                 <span className="text-muted">Página {page} de {totalPages}</span>
-                <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
+                <Button variant="outline-secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
               </div>
             </div>
           </Card.Body>
@@ -260,14 +290,14 @@ const PurchasesPage = () => {
 
       <Modal show={showDeleteModal} onHide={closeDeleteModal} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirmar Eliminacion</Modal.Title>
+          <Modal.Title>Confirmar eliminacion</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Estas seguro de que quieres eliminar esta compra del producto <strong>{movementToDelete?.product?.name}</strong>? Esta accion no se puede deshacer..
+          Estas seguro de que quieres eliminar esta compra del producto <strong>{movementToDelete?.product?.name}</strong>?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={closeDeleteModal}>Cancelar</Button>
-          <Button variant="danger" onClick={handleDelete}>Eliminar</Button>
+          <Button variant="danger" onClick={handleDelete} disabled={!canManagePurchases}>Eliminar</Button>
         </Modal.Footer>
       </Modal>
     </>
@@ -275,19 +305,3 @@ const PurchasesPage = () => {
 };
 
 export default PurchasesPage;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

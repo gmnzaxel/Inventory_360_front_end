@@ -80,14 +80,14 @@ const Dashboard = () => {
           <StatCard title="Stock Bajo" value={data.low_stock_count} icon={<FaExclamationTriangle className="text-warning"/>} />
         </Col>
         <Col md={6} xl={3}>
-            <StatCard title="No de Ventas" value={data.monthly_sales_count} icon={<FaReceipt className="text-info"/>} />
+            <StatCard title="N° de Ventas" value={data.monthly_sales_count} icon={<FaReceipt className="text-info"/>} />
         </Col>
       </Row>
 
       <Row className="g-4">
         <Col lg={8}>
           <Card className="h-100 dashboard-card">
-            <Card.Header className="card-header-custom">Rendimiento de Ventas (Ultimos 6 meses)</Card.Header>
+            <Card.Header className="card-header-custom">Rendimiento de Ventas (Últimos 6 meses)</Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -157,7 +157,7 @@ const Dashboard = () => {
                       <th className="ps-3">Producto</th>
                       <th>Sucursal</th>
                       <th className="text-center">Stock Actual</th>
-                      <th className="text-center">Stock Minimo</th>
+                      <th className="text-center">Stock Mínimo</th>
                     </tr>
                   </thead>
                   <tbody>

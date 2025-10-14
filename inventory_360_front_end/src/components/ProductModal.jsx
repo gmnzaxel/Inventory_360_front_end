@@ -1,27 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
-import { validateName, validateOptionalText, validatePositiveNumber, validateInteger } from '../utils/validation';
-import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
+import { parseApiError } from '../utils/errors';
+import { validateName, validateOptionalText, validateInteger } from '../utils/validation';
+import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { CONTROL_PREFIX } from '../config/api';
 import { normalizeApiList } from '../utils/apiHelpers';
 
 const emptyForm = {
   name: '',
   description: '',
-  price: '',
   category_id: '',
   minimum_stock_input: 10,
 };
 
-const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
+const ProductModal = ({
+  show,
+  handleClose,
+  onSuccess,
+  productToEdit,
+  existingProducts = [],
+}) => {
   const [formData, setFormData] = useState({ ...emptyForm });
   const [formErrors, setFormErrors] = useState({});
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const isEditMode = Boolean(productToEdit);
+  const comparableProducts = useMemo(
+    () => (Array.isArray(existingProducts) ? existingProducts : []),
+    [existingProducts]
+  );
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -40,7 +49,6 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
         setFormData({
           name: productToEdit.name || '',
           description: productToEdit.description || '',
-          price: productToEdit.price ?? '',
           category_id: productToEdit.category?.id ?? '',
           minimum_stock_input: productToEdit.minimum_stock ?? 10,
         });
@@ -48,26 +56,59 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
         setFormData({ ...emptyForm });
       }
       setFormErrors({});
-      setError('');
+      setError(null);
     }
   }, [show, isEditMode, productToEdit]);
+
+  const checkDuplicateName = (rawName) => {
+    const candidate = (rawName || '').trim().toLowerCase();
+    if (!candidate) return null;
+    const duplicate = comparableProducts.some(
+      (product) =>
+        product &&
+        product.id !== (productToEdit?.id ?? null) &&
+        (product.name || '').trim().toLowerCase() === candidate
+    );
+    if (duplicate) {
+      return `Ya existe '${rawName.trim()}' en esta empresa.`;
+    }
+    return null;
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (name === 'name') {
+      const duplicateMessage = checkDuplicateName(value);
+      setFormErrors((prev) => ({
+        ...prev,
+        name: duplicateMessage || prev?.name,
+      }));
+    }
+  };
+
+  const handleBlur = (event) => {
+    if (event.target.name !== 'name') return;
+    const duplicateMessage = checkDuplicateName(event.target.value);
+    setFormErrors((prev) => ({
+      ...prev,
+      name: duplicateMessage || prev?.name,
+    }));
   };
 
   const validateForm = () => {
     const errors = {};
     const nameError = validateName(formData.name, { label: 'Nombre del producto', min: 3, max: 80 });
-    if (nameError) errors.name = nameError;
+    if (nameError) {
+      errors.name = nameError;
+    } else {
+      const duplicateMessage = checkDuplicateName(formData.name);
+      if (duplicateMessage) errors.name = duplicateMessage;
+    }
 
     const descriptionError = validateOptionalText(formData.description, { label: 'Descripción', max: 400 });
     if (descriptionError) errors.description = descriptionError;
-
-    const priceError = validatePositiveNumber(formData.price, { label: 'Precio' });
-    if (priceError) errors.price = priceError;
 
     const stockError = validateInteger(formData.minimum_stock_input, { label: 'Stock mínimo', min: 0 });
     if (stockError) errors.minimum_stock_input = stockError;
@@ -81,7 +122,7 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError('');
+    setError(null);
 
     const validationErrors = validateForm();
     setFormErrors(validationErrors);
@@ -90,9 +131,9 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
     setLoading(true);
 
     const payload = {
-      ...formData,
-      price: Number(formData.price),
-      minimum_stock_input: Number(formData.minimum_stock_input),
+      name: formData.name.trim(),
+      description: formData.description,
+      minimum_stock_input: Number(formData.minimum_stock_input ?? 0),
       category_id: formData.category_id ? Number(formData.category_id) : null,
     };
 
@@ -105,20 +146,14 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
       onSuccess();
       handleClose();
     } catch (err) {
-      const message = formatApiError(err, 'Ocurrió un error al guardar el producto.');
-      setError(message);
-      const data = err.response?.data;
-      if (data && typeof data === 'object') {
-        const fieldErrors = {};
-        ['name', 'description', 'price', 'minimum_stock_input', 'category_id'].forEach((field) => {
-          if (data[field]) {
-            const value = Array.isArray(data[field]) ? data[field].join(' ') : String(data[field]);
-            fieldErrors[field] = value;
-          }
-        });
-        if (Object.keys(fieldErrors).length) {
-          setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
-        }
+      const apiError = err.inventoryError || parseApiError(err, 'Ocurrió un error al guardar el producto.', 'Error al guardar');
+      setError(apiError);
+      const details = apiError.details || {};
+      if (Object.keys(details).length) {
+        setFormErrors((prev) => ({
+          ...prev,
+          ...details,
+        }));
       }
     } finally {
       setLoading(false);
@@ -128,11 +163,11 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
   const handleExited = () => {
     setFormData({ ...emptyForm });
     setFormErrors({});
-    setError('');
+    setError(null);
     setCategories([]);
   };
 
-  const title = isEditMode ? 'Editar Producto' : 'Añadir Nuevo Producto';
+  const title = isEditMode ? 'Editar Producto' : 'Añadir Producto';
 
   return (
     <Modal show={show} onHide={handleClose} centered onExited={handleExited}>
@@ -141,7 +176,15 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
       </Modal.Header>
       <Form onSubmit={handleSubmit} noValidate>
         <Modal.Body>
-          {error && <Alert variant="danger">{error}</Alert>}
+          {error && (
+            <Alert variant="danger">
+              <div className="fw-semibold">{error.title || 'Error'}</div>
+              <div>{error.message}</div>
+              {error.requestId && (
+                <div className="small text-muted">ID de seguimiento: {error.requestId}</div>
+              )}
+            </Alert>
+          )}
           <Form.Group className="mb-3">
             <Form.Label>Nombre del Producto</Form.Label>
             <Form.Control
@@ -149,6 +192,7 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
               name="name"
               value={formData.name}
               onChange={handleChange}
+              onBlur={handleBlur}
               isInvalid={!!formErrors.name}
               required
             />
@@ -183,46 +227,26 @@ const ProductModal = ({ show, handleClose, onSuccess, productToEdit }) => {
             />
             <Form.Control.Feedback type="invalid">{formErrors.description}</Form.Control.Feedback>
           </Form.Group>
-          <Row>
-            <Col>
-              <Form.Group className="mb-3">
-                <Form.Label>Precio</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  step="0.01"
-                  min="0"
-                  isInvalid={!!formErrors.price}
-                  required
-                />
-                <Form.Control.Feedback type="invalid">{formErrors.price}</Form.Control.Feedback>
-              </Form.Group>
-            </Col>
-            <Col>
-              <Form.Group className="mb-3">
-                <Form.Label>Stock Mínimo</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="minimum_stock_input"
-                  value={formData.minimum_stock_input}
-                  onChange={handleChange}
-                  min="0"
-                  isInvalid={!!formErrors.minimum_stock_input}
-                  required
-                />
-                <Form.Control.Feedback type="invalid">{formErrors.minimum_stock_input}</Form.Control.Feedback>
-              </Form.Group>
-            </Col>
-          </Row>
+          <Form.Group className="mb-3">
+            <Form.Label>Stock mínimo</Form.Label>
+            <Form.Control
+              type="number"
+              name="minimum_stock_input"
+              value={formData.minimum_stock_input}
+              onChange={handleChange}
+              min="0"
+              isInvalid={!!formErrors.minimum_stock_input}
+              required
+            />
+            <Form.Control.Feedback type="invalid">{formErrors.minimum_stock_input}</Form.Control.Feedback>
+          </Form.Group>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleClose}>
             Cancelar
           </Button>
           <Button variant="primary" type="submit" disabled={loading}>
-            {loading ? <Spinner as="span" size="sm" /> : 'Guardar Cambios'}
+            {loading ? <Spinner as="span" size="sm" /> : 'Guardar'}
           </Button>
         </Modal.Footer>
       </Form>

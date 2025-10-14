@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { useAuth } from '../context/AuthContext';
 import { Container, Row, Col, Card, Button, Form, Spinner, Alert, Modal } from 'react-bootstrap';
@@ -25,7 +25,7 @@ const BranchesPage = () => {
   const [branchForm, setBranchForm] = useState(emptyBranch);
   const [branchErrors, setBranchErrors] = useState({});
   const [branchToEdit, setBranchToEdit] = useState(null);
-  const [modalError, setModalError] = useState('');
+  const [modalError, setModalError] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -41,7 +41,7 @@ const BranchesPage = () => {
       setBranches(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudieron cargar las sucursales.'));
+      setError(parseApiError(err, 'No se pudieron cargar las sucursales.'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ const BranchesPage = () => {
     setBranchToEdit(branch);
     setBranchForm(branch ? { name: branch.name || '', address: branch.address || '', phone: branch.phone || '' } : { ...emptyBranch });
     setBranchErrors({});
-    setModalError('');
+    setModalError(null);
     setShowModal(true);
   };
 
@@ -64,14 +64,31 @@ const BranchesPage = () => {
     setBranchToEdit(null);
     setBranchForm({ ...emptyBranch });
     setBranchErrors({});
-    setModalError('');
+    setModalError(null);
     setModalLoading(false);
   };
 
+
+  const checkDuplicateName = (rawName) => {
+    const candidate = (rawName || '').trim().toLowerCase();
+    if (!candidate) return null;
+    const duplicate = branches.some((branch) => (branch?.id ?? null) !== (branchToEdit?.id ?? null) && (branch?.name || '').trim().toLowerCase() === candidate);
+    return duplicate ? `Ya existe '${rawName.trim()}' en esta empresa.` : null;
+  };
+
+  const handleNameBlur = () => {
+    const duplicateMessage = checkDuplicateName(branchForm.name);
+    setBranchErrors((prev) => ({ ...prev, name: duplicateMessage || prev?.name }));
+  };
   const validateBranchForm = (form) => {
     const errors = {};
     const nameError = validateName(form.name, { label: 'Nombre de la sucursal', min: 3, max: 80 });
-    if (nameError) errors.name = nameError;
+    if (nameError) {
+      errors.name = nameError;
+    } else {
+      const duplicateMessage = checkDuplicateName(form.name);
+      if (duplicateMessage) errors.name = duplicateMessage;
+    }
 
     const addressError = validateRequiredText(form.address, { label: 'Dirección', min: 5, max: 200 });
     if (addressError) errors.address = addressError;
@@ -85,12 +102,16 @@ const BranchesPage = () => {
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     setBranchForm((prev) => ({ ...prev, [name]: value }));
-    setBranchErrors((prev) => ({ ...prev, [name]: '' }));
+    setBranchErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (name === 'name') {
+      const duplicateMessage = checkDuplicateName(value);
+      setBranchErrors((prev) => ({ ...prev, name: duplicateMessage || prev?.name }));
+    }
   };
 
   const handleSubmitBranch = async (event) => {
     event.preventDefault();
-    setModalError('');
+    setModalError(null);
 
     const validationErrors = validateBranchForm(branchForm);
     setBranchErrors(validationErrors);
@@ -98,15 +119,20 @@ const BranchesPage = () => {
 
     setModalLoading(true);
     try {
+      const payload = {
+        name: branchForm.name.trim(),
+        address: branchForm.address.trim(),
+        phone: branchForm.phone.trim(),
+      };
       if (branchToEdit) {
-        await api.put(`${CONTROL_PREFIX}/branches/${branchToEdit.id}/`, branchForm);
+        await api.put(`${CONTROL_PREFIX}/branches/${branchToEdit.id}/`, payload);
       } else {
-        await api.post(`${CONTROL_PREFIX}/branches/`, branchForm);
+        await api.post(`${CONTROL_PREFIX}/branches/`, payload);
       }
       closeModal();
       fetchBranches();
     } catch (err) {
-      setModalError(formatApiError(err, branchToEdit ? 'Error al actualizar la sucursal.' : 'Error al crear la sucursal.'));
+      setModalError(parseApiError(err, branchToEdit ? 'Error al actualizar la sucursal.' : 'Error al crear la sucursal.'));
       setModalLoading(false);
     }
   };
@@ -131,7 +157,7 @@ const BranchesPage = () => {
       fetchBranches();
     } catch (err) {
       setDeleteLoading(false);
-      alert('No se pudo eliminar la sucursal.');
+      setError(parseApiError(err, 'No se pudo eliminar la sucursal.'));
     }
   };
 
@@ -140,7 +166,18 @@ const BranchesPage = () => {
       return <Col className="text-center py-5"><Spinner animation="border" /></Col>;
     }
     if (error) {
-      return <Col><Alert variant="danger">{error}</Alert></Col>;
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
+      return (
+        <Col>
+          <Alert variant="danger">
+            <div className="fw-semibold">{details.title || 'Error'}</div>
+            <div>{details.message}</div>
+            {details.requestId && (
+              <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+            )}
+          </Alert>
+        </Col>
+      );
     }
     if (branches.length === 0) {
       return <Col className="text-center py-5"><p>No hay sucursales para mostrar.</p></Col>;
@@ -224,7 +261,15 @@ const BranchesPage = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmitBranch} noValidate>
           <Modal.Body>
-            {modalError && <Alert variant="danger">{modalError}</Alert>}
+            {modalError && (
+              <Alert variant="danger">
+                <div className="fw-semibold">{modalError.title || 'Error'}</div>
+                <div>{modalError.message}</div>
+                {modalError.requestId && (
+                  <div className="small text-muted">ID de seguimiento: {modalError.requestId}</div>
+                )}
+              </Alert>
+            )}
             <Form.Group className="mb-3">
               <Form.Label>Nombre</Form.Label>
               <Form.Control
@@ -232,6 +277,7 @@ const BranchesPage = () => {
                 name="name"
                 value={branchForm.name}
                 onChange={handleInputChange}
+                onBlur={handleNameBlur}
                 isInvalid={!!branchErrors.name}
                 required
               />

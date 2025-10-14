@@ -4,7 +4,7 @@ import { FaKey, FaSave, FaBuilding, FaPalette, FaBell, FaEye, FaEyeSlash } from 
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { CONTROL_PREFIX } from '../config/api';
 import { validateName, validatePhone, validateOptionalText, STRONG_PASSWORD_REGEX } from '../utils/validation';
 
@@ -61,10 +61,10 @@ const BusinessSettings = () => {
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: undefined }));
   };
@@ -74,19 +74,20 @@ const BusinessSettings = () => {
     const nameError = validateName(formData.name, { label: 'Nombre de la empresa', min: 3, max: 100 });
     if (nameError) errors.name = nameError;
 
-    const addressError = validateOptionalText(formData.address, { label: 'Dirección', min: 5, max: 200 });
+    const addressError = validateOptionalText(formData.address, { label: 'Direccion', min: 5, max: 200 });
     if (addressError) errors.address = addressError;
 
-    const phoneError = validatePhone(formData.phone, { label: 'Teléfono', digits: 10, required: false });
+    const phoneError = validatePhone(formData.phone, { label: 'Telefono', digits: 10, required: false });
     if (phoneError) errors.phone = phoneError;
 
     return errors;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!isAdmin) return;
     setLoading(true);
-    setError('');
+    setError(null);
     setSuccess('');
 
     const validationErrors = validateForm();
@@ -98,9 +99,14 @@ const BusinessSettings = () => {
 
     try {
       await api.put(`${CONTROL_PREFIX}/businesses/${currentUser.business.id}/`, formData);
-      setSuccess('Información de la empresa actualizada.');
+      setSuccess('Informacion de la empresa actualizada.');
     } catch (err) {
-      setError(formatApiError(err, 'No se pudo actualizar la información.'));
+      const apiError = parseApiError(err, 'No se pudo actualizar la informacion.');
+      setError(apiError);
+      const details = apiError.details || {};
+      if (Object.keys(details).length) {
+        setFormErrors((prev) => ({ ...prev, ...details }));
+      }
     } finally {
       setLoading(false);
     }
@@ -108,15 +114,21 @@ const BusinessSettings = () => {
 
   return (
     <Card className="shadow-sm">
-      <Card.Header as="h5" className="d-flex align-items-center">
-        <FaBuilding className="me-2" />Información de la Empresa
-      </Card.Header>
+      <Card.Header as="h5" className="d-flex align-items-center"><FaBuilding className="me-2" />Informacion de la empresa</Card.Header>
       <Card.Body>
         {success && <Alert variant="success">{success}</Alert>}
-        {error && <Alert variant="danger">{error}</Alert>}
+        {error && (
+          <Alert variant="danger">
+            <div className="fw-semibold">{error.title || 'Error'}</div>
+            <div>{error.message}</div>
+            {error.requestId && (
+              <div className="small text-muted">ID de seguimiento: {error.requestId}</div>
+            )}
+          </Alert>
+        )}
         <Form onSubmit={handleSubmit} noValidate>
           <Form.Group className="mb-3">
-            <Form.Label>Nombre de la Empresa</Form.Label>
+            <Form.Label>Nombre de la empresa</Form.Label>
             <Form.Control
               type="text"
               name="name"
@@ -129,7 +141,7 @@ const BusinessSettings = () => {
             <Form.Control.Feedback type="invalid">{formErrors.name}</Form.Control.Feedback>
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Dirección</Form.Label>
+            <Form.Label>Direccion</Form.Label>
             <Form.Control
               type="text"
               name="address"
@@ -141,7 +153,7 @@ const BusinessSettings = () => {
             <Form.Control.Feedback type="invalid">{formErrors.address}</Form.Control.Feedback>
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Teléfono</Form.Label>
+            <Form.Label>Telefono</Form.Label>
             <Form.Control
               type="text"
               name="phone"
@@ -154,7 +166,7 @@ const BusinessSettings = () => {
           </Form.Group>
           {isAdmin && (
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? <Spinner as="span" size="sm" /> : (<><FaSave className="me-2" />Guardar Cambios</>)}
+              {loading ? <Spinner as="span" size="sm" /> : (<><FaSave className="me-2" />Guardar cambios</>)}
             </Button>
           )}
         </Form>

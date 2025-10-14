@@ -1,7 +1,8 @@
 .sidebar {
   height: 100vh;
   color: white;
-  background-color: var(--sidebar-bg) !important; /* Usamos la variable de tema */
+  background: linear-gradient(180deg, var(--sidebar-bg) 0%, #0f1013 100%) !important;
+  border-right: 1px solid var(--sidebar-border);
   transition: width 0.3s ease;
   overflow-x: hidden;
   display: flex;

@@ -1,6 +1,7 @@
 import React from 'react';
 import api from '../api/client';
 import { USER_PREFIX } from '../config/api';
+import { parseApiError } from '../utils/errors';
 
 const AuthContext = React.createContext();
 
@@ -10,6 +11,17 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = React.useState(null);
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+
+  const normalizeUser = React.useCallback((user) => {
+    if (!user) return null;
+    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+    const branchId = user.branch?.id ?? user.branch_id ?? user.branchId ?? null;
+    return {
+      ...user,
+      permissions,
+      branchId,
+    };
+  }, []);
 
   const logout = React.useCallback(async () => {
     const refreshToken = localStorage.getItem('refreshToken');
@@ -30,7 +42,7 @@ export const AuthProvider = ({ children }) => {
   const fetchUserData = React.useCallback(async () => {
     try {
       const response = await api.get(`${USER_PREFIX}/user/`);
-      setCurrentUser(response.data);
+      setCurrentUser(normalizeUser(response.data));
       setIsAuthenticated(true);
     } catch (error) {
       console.error('No se pudieron obtener los datos del usuario.', error);
@@ -38,7 +50,7 @@ export const AuthProvider = ({ children }) => {
         logout();
       }
     }
-  }, [logout]);
+  }, [logout, normalizeUser]);
 
   React.useEffect(() => {
     const initializeAuth = async () => {
@@ -63,7 +75,8 @@ export const AuthProvider = ({ children }) => {
         await fetchUserData();
       }
     } catch (error) {
-      throw new Error(error.response?.data?.detail || 'Email o contraseña incorrectos.');
+      const apiError = parseApiError(error, 'Email o contraseña incorrectos.', 'Credenciales invalidas');
+      throw new Error(apiError.message);
     }
   }, [fetchUserData]);
 
@@ -73,13 +86,8 @@ export const AuthProvider = ({ children }) => {
         name, email, password, password2, business,
       });
     } catch (error) {
-      const errorData = error.response?.data;
-      let errorMessage = 'Error al configurar el sistema.';
-      if (errorData) {
-        const messages = Object.values(errorData).flat().join(' ');
-        if (messages) errorMessage = messages;
-      }
-      throw new Error(errorMessage);
+      const apiError = parseApiError(error, 'Error al configurar el sistema.', 'Registro');
+      throw new Error(apiError.message);
     }
   }, []);
 
@@ -88,20 +96,29 @@ export const AuthProvider = ({ children }) => {
       await api.delete(`${USER_PREFIX}/user/delete/`);
       await logout();
     } catch (error) {
+      const apiError = parseApiError(error, 'No se pudo eliminar la cuenta.', 'Eliminar cuenta');
       console.error('Error al eliminar la cuenta:', error.response?.data);
-      throw new Error(error.response?.data?.detail || 'No se pudo eliminar la cuenta.');
+      throw new Error(apiError.message);
     }
   }, [logout]);
+
+  const hasPermission = React.useCallback(
+    (code) => (code ? currentUser?.permissions?.includes(code) ?? false : true),
+    [currentUser]
+  );
 
   const value = React.useMemo(() => ({
     currentUser,
     isAuthenticated,
     loading,
+    permissions: currentUser?.permissions || [],
+    branchId: currentUser?.branchId ?? null,
+    hasPermission,
     login,
     registerAdmin,
     logout,
     deleteAccount,
-  }), [currentUser, isAuthenticated, loading, login, registerAdmin, logout, deleteAccount]);
+  }), [currentUser, isAuthenticated, loading, hasPermission, login, registerAdmin, logout, deleteAccount]);
 
   return (
     <AuthContext.Provider value={value}>
@@ -109,5 +126,4 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
 

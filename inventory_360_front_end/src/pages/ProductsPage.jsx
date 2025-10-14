@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { Container, Row, Col, Card, Button, Form, InputGroup, Table, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
 import { FaPlus, FaSearch, FaEdit, FaTrash } from 'react-icons/fa';
 import ProductModal from '../components/ProductModal';
+import { useAuth } from '../context/AuthContext';
 import { CONTROL_PREFIX } from '../config/api';
 
 const ProductsPage = () => {
@@ -21,23 +22,32 @@ const ProductsPage = () => {
   const [productToDelete, setProductToDelete] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'admin';
+  const showActions = true;
+  const columnCount = showActions ? 5 : 4;
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.get(`${CONTROL_PREFIX}/products/`, {
-        params: { search: searchTerm, page, page_size: pageSize }
+        params: {
+          search: searchTerm,
+          page,
+          page_size: pageSize,
+          include_all: isAdmin ? 'true' : 'false',
+        },
       });
       const { items, count } = extractListAndCount(response.data);
       setProducts(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudieron cargar los productos.'));
+      setError(parseApiError(err, 'No se pudieron cargar los productos.'));
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, page, pageSize]);
+  }, [searchTerm, page, pageSize, isAdmin]);
 
   useEffect(() => {
     setLoading(true);
@@ -77,7 +87,7 @@ const ProductsPage = () => {
       fetchProducts();
     } catch (err) {
       console.error("Error al eliminar el producto", err);
-      alert('No se pudo eliminar el producto.');
+      setError(parseApiError(err, 'No se pudo eliminar el producto.'));
     }
   };
 
@@ -85,7 +95,7 @@ const ProductsPage = () => {
     if (loading) {
       return (
         <tr>
-          <td colSpan="6" className="text-center py-5">
+          <td colSpan={columnCount} className="text-center py-5">
             <Spinner animation="border" />
           </td>
         </tr>
@@ -93,10 +103,17 @@ const ProductsPage = () => {
     }
 
     if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
       return (
         <tr>
-          <td colSpan="6">
-            <Alert variant="danger" className="m-3">{error}</Alert>
+          <td colSpan={columnCount}>
+            <Alert variant="danger" className="m-3">
+              <div className="fw-semibold">{details.title || 'Error'}</div>
+              <div>{details.message}</div>
+              {details.requestId && (
+                <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+              )}
+            </Alert>
           </td>
         </tr>
       );
@@ -105,7 +122,7 @@ const ProductsPage = () => {
     if (products.length === 0) {
       return (
         <tr>
-          <td colSpan="6" className="text-center py-5">
+          <td colSpan={columnCount} className="text-center py-5">
             {searchTerm ? `No se encontraron productos para "${searchTerm}"` : 'No hay productos para mostrar.'}
           </td>
         </tr>
@@ -119,26 +136,26 @@ const ProductsPage = () => {
       } else if (product.stock <= product.minimum_stock) {
         stockBadgeVariant = 'warning';
       }
-
       return (
         <tr key={product.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
           <td className="ps-3 fw-bold">{product.name}</td>
           <td>{product.category?.name || 'Sin categoria'}</td>
-          <td className="text-end">${parseFloat(product.price).toFixed(2)}</td>
           <td className="text-center">
             <Badge pill bg={stockBadgeVariant}>
               {product.stock}
             </Badge>
           </td>
           <td className="text-center">{product.minimum_stock}</td>
-          <td className="text-center">
-            <Button variant="outline-primary" size="sm" className="me-2" onClick={() => openEditModal(product)}>
-              <FaEdit />
-            </Button>
-            <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(product)}>
-              <FaTrash />
-            </Button>
-          </td>
+          {showActions && (
+            <td className="text-center">
+              <Button variant="outline-primary" size="sm" className="me-2" onClick={() => openEditModal(product)}>
+                <FaEdit />
+              </Button>
+              <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(product)}>
+                <FaTrash />
+              </Button>
+            </td>
+          )}
         </tr>
       );
     });
@@ -150,7 +167,7 @@ const ProductsPage = () => {
       <Container fluid className="page-container">
         <Row className="align-items-center mb-4 animated-header">
           <Col>
-            <h2 className="h4 mb-0">Gestion de Productos</h2>
+            <h2 className="h4 mb-0">Gestión de Productos</h2>
           </Col>
           <Col xs="auto">
             <Button variant="primary" onClick={() => openEditModal(null)}>
@@ -177,14 +194,13 @@ const ProductsPage = () => {
           <Card.Body className="p-0">
             <Table responsive hover className="mb-0">
               <thead className="table-light">
-                <tr>
-                  <th className="py-3 ps-3">Producto</th>
-                  <th>Categoria</th>
-                  <th className="text-end">Precio</th>
-                  <th className="text-center">Stock Actual</th>
-                  <th className="text-center">Stock Minimo</th>
-                  <th className="text-center">Acciones</th>
-                </tr>
+              <tr>
+                <th className="py-3 ps-3">Producto</th>
+                <th>Categoria</th>
+                <th className="text-center">Stock Actual</th>
+                <th className="text-center">Stock Mínimo</th>
+                {showActions && <th className="text-center">Acciones</th>}
+              </tr>
               </thead>
               <tbody>
                 {renderTableContent()}
@@ -214,6 +230,7 @@ const ProductsPage = () => {
         handleClose={() => setShowEditModal(false)}
         onSuccess={handleSuccess}
         productToEdit={productToEdit}
+        existingProducts={products}
       />
 
       <Modal show={showDeleteModal} onHide={closeDeleteModal} centered>
@@ -233,6 +250,8 @@ const ProductsPage = () => {
 };
 
 export default ProductsPage;
+
+
 
 
 

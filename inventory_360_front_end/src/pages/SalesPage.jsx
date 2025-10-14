@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { Container, Row, Col, Card, Button, Table, Badge, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
 import { FaPlus, FaSearch, FaEye, FaEdit, FaTrash, FaCalendar, FaDownload } from 'react-icons/fa';
@@ -28,6 +28,8 @@ const SalesPage = () => {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movementToDelete, setMovementToDelete] = useState(null);
+  const { hasPermission } = useAuth();
+  const canManageSales = hasPermission('ventas:execute');
 
   const fetchSales = useCallback(async () => {
     setLoading(true);
@@ -42,7 +44,7 @@ const SalesPage = () => {
       setSales(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudo cargar el historial de ventas.'));
+      setError(parseApiError(err, 'No se pudo cargar el historial de ventas.'));
     } finally {
       setLoading(false);
     }
@@ -100,8 +102,8 @@ const SalesPage = () => {
       closeDeleteModal();
       fetchSales();
     } catch (err) {
-      console.error('Error al eliminar la venta', err);
-      alert('No se pudo eliminar la venta.');
+      const apiError = parseApiError(err, 'No se pudo eliminar la venta.');
+      setError(apiError);
     }
   };
 
@@ -129,26 +131,49 @@ const SalesPage = () => {
 
   const renderTableContent = () => {
     if (loading) return <tr><td colSpan="6" className="text-center py-5"><Spinner /></td></tr>;
-    if (error) return <tr><td colSpan="6"><Alert variant="danger" className="m-3">{error}</Alert></td></tr>;
+    if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
+      return (
+        <tr>
+          <td colSpan="6">
+            <Alert variant="danger" className="m-3">
+              <div className="fw-semibold">{details.title || 'Error'}</div>
+              <div>{details.message}</div>
+              {details.requestId && (
+                <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+              )}
+            </Alert>
+          </td>
+        </tr>
+      );
+    }
     if (sales.length === 0) return <tr><td colSpan="6" className="text-center py-5">No se encontraron ventas.</td></tr>;
 
-    return sales.map((sale, index) => (
-      <tr key={sale.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
-        <td className="ps-3 fw-bold">{sale.product?.name}</td>
-        <td className="text-center text-danger fw-bold">{sale.quantity}</td>
-        <td>{new Date(sale.date).toLocaleDateString()}</td>
-        <td className="text-end">${parseFloat(sale.unit_price * Math.abs(sale.quantity) || 0).toFixed(2)}</td>
-        <td className="text-center"><Badge pill bg="primary">Completada</Badge></td>
-        <td className="text-center">
-          <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowDetails(sale)}><FaEye /></Button>
-          <Button variant="outline-primary" size="sm" className="me-2" disabled={!currentUser?.can_sale} onClick={() => handleShowEditModal(sale)}><FaEdit /></Button>
-          <Button variant="outline-danger" size="sm" disabled={!currentUser?.can_sale} onClick={() => openDeleteModal(sale)}><FaTrash /></Button>
-        </td>
-      </tr>
-    ));
+    return sales.map((sale, index) => {
+      const quantity = Math.abs(Number(sale.quantity) || 0);
+      const total = parseFloat((sale.unit_price || 0) * quantity).toFixed(2);
+
+      return (
+        <tr key={sale.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
+          <td className="ps-3 fw-bold">{sale.product?.name}</td>
+          <td className="text-center fw-semibold">{quantity}</td>
+          <td>{new Date(sale.date).toLocaleDateString()}</td>
+          <td className="text-end">${total}</td>
+          <td className="text-center"><Badge pill bg="primary">Completada</Badge></td>
+          <td className="text-center">
+            <Button variant="outline-secondary" size="sm" className="me-2" onClick={() => handleShowDetails(sale)}><FaEye /></Button>
+            {canManageSales && (
+              <>
+                <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleShowEditModal(sale)}><FaEdit /></Button>
+                <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(sale)}><FaTrash /></Button>
+              </>
+            )}
+          </td>
+        </tr>
+      );
+    });
   };
 
-  const { currentUser } = useAuth();
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   return (
     <>
@@ -159,10 +184,12 @@ const SalesPage = () => {
             <Button variant="outline-primary" onClick={handleExport} title="Exportar CSV">
               <FaDownload />
             </Button>
-            <Button variant="primary" onClick={handleShowCreateModal} disabled={!currentUser?.can_sale}>
-              <FaPlus className="me-2" />
-              Nueva Venta
-            </Button>
+            {canManageSales && (
+              <Button variant="primary" onClick={handleShowCreateModal}>
+                <FaPlus className="me-2" />
+                Nueva venta
+              </Button>
+            )}
           </Col>
         </Row>
         <Card className="shadow-sm animated-card">
@@ -185,7 +212,7 @@ const SalesPage = () => {
                   <Form.Control type="date" value={endDate} onChange={(e) => { setPage(1); setEndDate(e.target.value); }} />
                 </InputGroup>
               </Col>
-                          <Col md={12} className="d-flex flex-wrap gap-2">
+              <Col md={12} className="d-flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline-secondary"
@@ -206,7 +233,7 @@ const SalesPage = () => {
                     applyRange(startValue.toISOString().slice(0, 10), endValue.toISOString().slice(0, 10));
                   }}
                 >
-                  Ultimos 7 dias
+                  Últimos 7 dias
                 </Button>
                 <Button
                   size="sm"
@@ -250,7 +277,7 @@ const SalesPage = () => {
             </Table>
             <div className="d-flex justify-content-between align-items-center p-3">
               <div className="d-flex align-items-center gap-2">
-                <span className="text-muted">Tamaño página:</span>
+                <span className="text-muted">tamaño página:</span>
                 <Form.Select size="sm" style={{ width: 'auto' }} value={pageSize} onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10) || 10); }}>
                   <option value="10">10</option>
                   <option value="20">20</option>
@@ -290,7 +317,7 @@ const SalesPage = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={closeDeleteModal}>Cancelar</Button>
-          <Button variant="danger" onClick={handleDelete}>Eliminar</Button>
+          <Button variant="danger" onClick={handleDelete} disabled={!canManageSales}>Eliminar</Button>
         </Modal.Footer>
       </Modal>
     </>

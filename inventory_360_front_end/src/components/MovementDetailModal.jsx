@@ -74,9 +74,7 @@ const MovementDetailModal = ({ show, handleClose, movement }) => {
         <Row className="text-center mt-3">
           <Col>
             <div className="text-muted">Cantidad</div>
-            <h4 className={movement.quantity > 0 ? 'text-success' : 'text-danger'}>
-              {movement.quantity > 0 ? `+${movement.quantity}` : movement.quantity}
-            </h4>
+            <h4 className="fw-semibold">{Math.abs(Number(movement.quantity) || 0)}</h4>
           </Col>
           <Col>
             <div className="text-muted">Precio Unitario</div>

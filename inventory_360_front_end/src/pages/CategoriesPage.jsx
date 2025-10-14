@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
-import { formatApiError } from '../utils/errors';
+import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
 import { Container, Row, Col, Card, Button, Table, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,8 @@ import { CONTROL_PREFIX } from '../config/api';
 const CategoriesPage = () => {
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'admin';
+  const showActions = isAdmin;
+  const columnCount = showActions ? 3 : 2;
 
   const [categories, setCategories] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -35,7 +37,7 @@ const CategoriesPage = () => {
       setCategories(items);
       setTotalCount(count);
     } catch (err) {
-      setError(formatApiError(err, 'No se pudieron cargar las categorias.'));
+      setError(parseApiError(err, 'No se pudieron cargar las categorias.'));
     } finally {
       setLoading(false);
     }
@@ -45,7 +47,10 @@ const CategoriesPage = () => {
     fetchCategories();
   }, [fetchCategories]);
 
-  const handleSuccess = () => fetchCategories();
+  const handleSuccess = () => {
+    fetchCategories();
+    setError(null);
+  };
 
   const openModal = (category = null) => {
     setCategoryToEdit(category);
@@ -73,33 +78,60 @@ const CategoriesPage = () => {
       handleSuccess();
     } catch (err) {
       setDeleteLoading(false);
-      alert('No se pudo eliminar la categoria.');
+      setError(parseApiError(err, 'No se pudo eliminar la categoria.'));
     }
   };
 
   const renderTableContent = () => {
-    if (loading) return <tr><td colSpan="3" className="text-center py-5"><Spinner /></td></tr>;
-    if (error) return <tr><td colSpan="3"><Alert variant="danger" className="m-3">{error}</Alert></td></tr>;
-    if (categories.length === 0) return <tr><td colSpan="3" className="text-center py-5">No hay categorias creadas.</td></tr>;
+    if (loading) {
+      return (
+        <tr>
+          <td colSpan={columnCount} className="text-center py-5">
+            <Spinner />
+          </td>
+        </tr>
+      );
+    }
+    if (error) {
+      const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
+      return (
+        <tr>
+          <td colSpan={columnCount}>
+            <Alert variant="danger" className="m-3">
+              <div className="fw-semibold">{details.title || 'Error'}</div>
+              <div>{details.message}</div>
+              {details.requestId && (
+                <div className="small text-muted">ID de seguimiento: {details.requestId}</div>
+              )}
+            </Alert>
+          </td>
+        </tr>
+      );
+    }
+    if (categories.length === 0) {
+      return (
+        <tr>
+          <td colSpan={columnCount} className="text-center py-5">
+            No hay categorias creadas.
+          </td>
+        </tr>
+      );
+    }
 
     return categories.map((cat, index) => (
       <tr key={cat.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
         <td className="ps-3 fw-bold">{cat.name}</td>
         <td className="text-muted">{cat.description}</td>
-        <td className="text-center">
-          {isAdmin ? (
-            <>
-              <Button variant="outline-primary" size="sm" className="me-2" onClick={() => openModal(cat)}>
-                <FaEdit />
-              </Button>
-              <Button variant="outline-danger" size="sm" onClick={() => openDeleteConfirmation(cat)}>
-                <FaTrash />
-              </Button>
-            </>
-          ) : (
-            <span className="text-muted">-</span>
-          )}
-        </td>
+        {showActions && (
+          <td className="text-center">
+            <Button variant="outline-primary" size="sm" className="me-2" onClick={() => openModal(cat)}>
+              <FaEdit />
+            </Button>
+            <Button variant="outline-danger" size="sm" onClick={() => openDeleteConfirmation(cat)}>
+              <FaTrash />
+            </Button>
+          </td>
+        )}
       </tr>
     ));
   };
@@ -110,7 +142,7 @@ const CategoriesPage = () => {
     <>
       <Container fluid className="page-container">
         <Row className="align-items-center mb-4 animated-header">
-          <Col><h2 className="h4 mb-0">Gestion de Categorias</h2></Col>
+          <Col><h2 className="h4 mb-0">Gestión de Categorias</h2></Col>
           {isAdmin && (
             <Col xs="auto"><Button variant="primary" onClick={() => openModal()}><FaPlus className="me-2" />Nueva Categoria</Button></Col>
           )}
@@ -121,8 +153,8 @@ const CategoriesPage = () => {
               <thead className="table-light">
                 <tr>
                   <th className="py-3 ps-3">Nombre</th>
-                  <th>Descripcion</th>
-                  <th className="text-center">Acciones</th>
+                  <th>Descripción</th>
+                  {showActions && <th className="text-center">Acciones</th>}
                 </tr>
               </thead>
               <tbody>{renderTableContent()}</tbody>
@@ -151,6 +183,7 @@ const CategoriesPage = () => {
         handleClose={() => setShowModal(false)}
         onSuccess={handleSuccess}
         categoryToEdit={categoryToEdit}
+        existingCategories={categories}
       />
 
       <Modal show={showDeleteModal} onHide={closeDeleteConfirmation} centered>
