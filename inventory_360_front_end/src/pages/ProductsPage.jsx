@@ -31,14 +31,13 @@ const ProductsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`${CONTROL_PREFIX}/products/`, {
-        params: {
-          search: searchTerm,
-          page,
-          page_size: pageSize,
-          include_all: isAdmin ? 'true' : 'false',
-        },
-      });
+      const params = {
+        page,
+        page_size: pageSize,
+        include_all: isAdmin ? 'true' : 'false',
+      };
+      if (searchTerm) params.search = searchTerm;
+      const response = await api.get(`${CONTROL_PREFIX}/products/`, { params });
       const { items, count } = extractListAndCount(response.data);
       setProducts(items);
       setTotalCount(count);

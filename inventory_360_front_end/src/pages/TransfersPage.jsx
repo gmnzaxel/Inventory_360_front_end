@@ -3,8 +3,8 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { parseApiError } from '../utils/errors';
 import { extractListAndCount } from '../utils/apiHelpers';
-import { Container, Row, Col, Card, Button, Table, Spinner, Alert, Form } from 'react-bootstrap';
-import { FaPlus } from 'react-icons/fa';
+import { Container, Row, Col, Card, Button, Table, Spinner, Alert, Form, InputGroup } from 'react-bootstrap';
+import { FaPlus, FaSearch } from 'react-icons/fa';
 import TransferModal from '../components/TransferModal';
 import { CONTROL_PREFIX } from '../config/api';
 
@@ -17,6 +17,7 @@ const TransfersPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -25,9 +26,9 @@ const TransfersPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`${CONTROL_PREFIX}/movements/`, {
-        params: { movement_type: 'transfer', page, page_size: pageSize },
-      });
+      const params = { movement_type: 'transfer', page, page_size: pageSize };
+      if (searchTerm) params.search = searchTerm;
+      const response = await api.get(`${CONTROL_PREFIX}/movements/`, { params });
       const { items, count } = extractListAndCount(response.data);
       setTransfers(items);
       setTotalCount(count);
@@ -36,10 +37,17 @@ const TransfersPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, searchTerm]);
 
   useEffect(() => {
-    fetchTransfers();
+    setLoading(true);
+    const timerId = setTimeout(() => {
+      fetchTransfers();
+    }, 500);
+
+    return () => {
+      clearTimeout(timerId);
+    };
   }, [fetchTransfers]);
 
   const handleSuccess = () => {
@@ -65,7 +73,15 @@ const TransfersPage = () => {
         </tr>
       );
     }
-    if (transfers.length === 0) return <tr><td colSpan="6" className="text-center py-5">No hay transferencias registradas.</td></tr>;
+    if (transfers.length === 0) {
+      return (
+        <tr>
+          <td colSpan="6" className="text-center py-5">
+            {searchTerm ? `No se encontraron transferencias para "${searchTerm}"` : 'No hay transferencias registradas.'}
+          </td>
+        </tr>
+      );
+    }
 
     return transfers.map((item, index) => (
       <tr key={item.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
@@ -95,6 +111,20 @@ const TransfersPage = () => {
           </Col>
         </Row>
         <Card className="shadow-sm animated-card">
+          <Card.Header className="p-3">
+            <Row>
+              <Col md={6} lg={4}>
+                <InputGroup>
+                  <InputGroup.Text><FaSearch /></InputGroup.Text>
+                  <Form.Control 
+                    placeholder="Buscar por producto..."
+                    value={searchTerm}
+                    onChange={(e) => { setPage(1); setSearchTerm(e.target.value); }}
+                  />
+                </InputGroup>
+              </Col>
+            </Row>
+          </Card.Header>
           <Card.Body className="p-0">
             <Table responsive hover className="mb-0">
               <thead className="table-light">
