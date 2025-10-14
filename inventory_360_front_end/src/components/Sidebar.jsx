@@ -8,9 +8,19 @@ import {
 } from 'react-icons/fa';
 import './Sidebar.css';
 
-const NavItem = ({ to, icon, text, isSidebarOpen }) => {
+const NavItem = ({ to, icon, text, isSidebarOpen, onNavigate }) => {
+  const handleClick = React.useCallback(() => {
+    if (onNavigate) onNavigate();
+  }, [onNavigate]);
+
   const navLink = (
-    <Nav.Link as={NavLink} to={to} end={to === "/"} className="d-flex align-items-center">
+    <Nav.Link
+      as={NavLink}
+      to={to}
+      end={to === "/"}
+      className="d-flex align-items-center"
+      onClick={handleClick}
+    >
       {icon} <span>{text}</span>
     </Nav.Link>
   );
@@ -25,7 +35,7 @@ const NavItem = ({ to, icon, text, isSidebarOpen }) => {
   return navLink;
 };
 
-const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
+const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave, onNavigate }) => {
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'admin';
   const menuSections = [
@@ -94,7 +104,7 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
             <div key={index} className="sidebar-section">
               <small className="sidebar-section-title">{section.title}</small>
               {section.items.map((item) => (
-                <NavItem key={item.text} {...item} isSidebarOpen={isSidebarOpen} />
+                <NavItem key={item.text} {...item} isSidebarOpen={isSidebarOpen} onNavigate={onNavigate} />
               ))}
             </div>
           ))}

@@ -21,9 +21,15 @@ import CategoriesPage from './pages/CategoriesPage';
 import './App.css';
 import { Toast, ToastContainer } from 'react-bootstrap';
 
-const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
+const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave, onNavigate }) => {
   const location = useLocation();
   const [toast, setToast] = useState({ show: false, message: '' });
+
+  useEffect(() => {
+    if (onNavigate) {
+      onNavigate(location.pathname);
+    }
+  }, [location.pathname, onNavigate]);
 
   useEffect(() => {
     if (location.state && location.state.deniedMessage) {
@@ -38,7 +44,12 @@ const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave }) => {
       <Sidebar 
         isSidebarOpen={isSidebarOpen} 
         handleMouseEnter={handleMouseEnter} 
-        handleMouseLeave={handleMouseLeave} 
+        handleMouseLeave={handleMouseLeave}
+        onNavigate={() => {
+          if (onNavigate) {
+            onNavigate(location.pathname);
+          }
+        }}
       />
       <div className="content-wrapper">
         <Header />
@@ -78,6 +89,11 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const handleMouseEnter = () => setIsSidebarOpen(true);
   const handleMouseLeave = () => setIsSidebarOpen(false);
+  const collapseSidebar = React.useCallback(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 991px)').matches) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
 
   return (
     <Routes>
@@ -89,6 +105,7 @@ function App() {
             isSidebarOpen={isSidebarOpen} 
             handleMouseEnter={handleMouseEnter} 
             handleMouseLeave={handleMouseLeave}
+            onNavigate={collapseSidebar}
           />
         </ProtectedRoute>
       }/>

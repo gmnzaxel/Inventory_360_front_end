@@ -87,19 +87,21 @@ const Dashboard = () => {
       <Row className="g-4">
         <Col lg={8}>
           <Card className="h-100 dashboard-card">
-            <Card.Header className="card-header-custom">Rendimiento de Ventas (Últimos 6 meses)</Card.Header>
+            <Card.Header className="card-header-custom">Rendimiento de Ventas (Ultimos 6 meses)</Card.Header>
             <Card.Body>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.sales_performance}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
-                    <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
-                    <Legend />
-                    <Bar dataKey="ventas" fill="#0d6efd" name="Ventas" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="sales-chart-scroll">
+                <div className="sales-chart-inner">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.sales_performance}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
+                      <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                      <Legend />
+                      <Bar dataKey="ventas" fill="#0d6efd" name="Ventas" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </Card.Body>
           </Card>

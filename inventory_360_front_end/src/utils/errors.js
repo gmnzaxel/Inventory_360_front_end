@@ -26,17 +26,33 @@ export function parseApiError(err, fallbackMessage = 'Ocurrio un error inesperad
   }
 
   try {
-    const details = Object.entries(data).reduce((acc, [key, value]) => {
+    const details = {};
+    const collectedMessages = [];
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+
       const msg = Array.isArray(value) ? value.join(' ') : String(value);
-      acc[key] = msg;
-      return acc;
-    }, {});
-    const message = Object.values(details).join(' ').replace(/\s+/g, ' ').trim() || fallbackMessage;
+      const clean = msg.trim();
+      details[key] = clean;
+
+      if (!clean) return;
+
+      const lowerKey = key.toLowerCase();
+      if (lowerKey === 'code') return;
+
+      // Evita superficies como "authentication_failed" o slugs similares sin espacios.
+      if (!/\s/.test(clean) && /^[a-z0-9._-]+$/i.test(clean)) return;
+
+      collectedMessages.push(clean);
+    });
+
+    const message = collectedMessages.join(' ').replace(/\s+/g, ' ').trim() || fallbackMessage;
     return {
       title: fallbackTitle,
       message,
       code: statusCode ? `error.http.${statusCode}` : 'error.validation',
-      details,
+      details: Object.keys(details).length ? details : undefined,
     };
   } catch (_) {
     return { title: fallbackTitle, message: fallbackMessage, code: 'error.unknown' };

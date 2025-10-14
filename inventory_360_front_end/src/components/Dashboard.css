@@ -97,6 +97,24 @@
   background-color: #f1f3f5;
 }
 
+.sales-chart-scroll {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.sales-chart-inner {
+  min-width: 480px;
+  height: 300px;
+}
+
+@media (max-width: 576px) {
+  .sales-chart-inner {
+    min-width: 360px;
+    height: 260px;
+  }
+}
+
 /* --- ESTILOS PARA MODO OSCURO --- */
 
 [data-theme='dark'] .dashboard-container {
