@@ -1,0 +1,148 @@
+/* --- Estilos para las Tarjetas de Estadísticas --- */
+.stat-card {
+  background-color: #fff;
+  border: 1px solid #e3e6f0;
+  border-left-width: .25rem; /* Borde izquierdo más grueso */
+  border-radius: .35rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+}
+
+/* Colores del borde y del título basados en la variante */
+.stat-card.border-start-primary { border-left-color: #0d6efd; }
+.stat-card .text-primary { color: #0d6efd !important; }
+
+.stat-card.border-start-success { border-left-color: #198754; }
+.stat-card .text-success { color: #198754 !important; }
+
+.stat-card.border-start-warning { border-left-color: #ffc107; }
+.stat-card .text-warning { color: #ffc107 !important; }
+
+.stat-card.border-start-info { border-left-color: #0dcaf0; }
+.stat-card .text-info { color: #0dcaf0 !important; }
+
+
+.stat-card h5 { /* Título de la tarjeta, ej: "Ventas del Mes" */
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.stat-card h2 { /* Valor numérico de la tarjeta */
+  font-weight: 700;
+  color: #343a40;
+}
+
+.stat-card .icon-col {
+  font-size: 2rem;
+  color: #dddfeb;
+}
+
+/* --- ESTILOS PARA EL GRÁFICO DE BARRAS CORREGIDO --- */
+.bar-chart-container {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  display: flex;
+  padding-left: 45px; /* Aumentamos el espacio para el eje Y */
+  border-left: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.y-axis {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%; /* Asegura que ocupe toda la altura del contenedor */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Distribuye los labels verticalmente */
+  font-size: 0.75rem;
+  color: #888;
+  text-align: right;
+  padding-right: 10px;
+  /* Eliminamos el transform que causaba la superposición */
+}
+
+/* Ajuste para que los labels no se peguen a los bordes */
+.y-axis span:first-child { transform: translateY(-50%); }
+.y-axis span:last-child { transform: translateY(50%); }
+
+
+.x-axis {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.bar-wrapper {
+  position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.bar {
+  width: 60%;
+  background-color: #0d6efd;
+  border-radius: 4px 4px 0 0;
+  transition: background-color 0.2s ease;
+}
+
+.bar-wrapper:hover .bar {
+  background-color: #0b5ed7; /* Color más oscuro al pasar el ratón */
+}
+
+.bar-label {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.bar-tooltip {
+  position: absolute;
+  top: -30px;
+  background-color: #343a40;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(10px);
+  z-index: 10;
+}
+
+.bar-wrapper:hover .bar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+
+/* --- Estilos Generales --- */
+.shadow-sm { box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important; }
+.table { vertical-align: middle; }
+.pie-chart { width: 120px; height: 120px; border-radius: 50%; transform: rotate(-90deg); }
+.pie-chart .pie-slice { fill: none; stroke-width: 32; stroke: var(--color); stroke-dasharray: calc(var(--value) * 3.1415 * 2 * 16 / 100) calc(3.1415 * 2 * 16); stroke-dashoffset: calc(var(--offset) * 3.1415 * 2 * 16 / 100); }
+.pie-chart-legend div { margin-bottom: 0.5rem; font-size: 0.9rem; display: flex; align-items: center; }
+.badge.bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
+.text-success { color: #198754 !important; }
+.badge.bg-info-soft { background-color: rgba(13, 202, 240, 0.1); }
+.text-info { color: #0dcaf0 !important; }
+.badge.bg-primary-soft { background-color: rgba(13, 110, 253, 0.1); }
+.text-primary { color: #0d6efd !important; }
+.badge.bg-warning-soft { background-color: rgba(255, 193, 7, 0.1); }
+.text-warning { color: #ffc107 !important; }
