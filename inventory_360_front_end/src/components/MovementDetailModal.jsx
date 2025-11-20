@@ -48,12 +48,6 @@ const MovementDetailModal = ({ show, handleClose, movement }) => {
                   {movement.branch_from.name}
                 </ListGroup.Item>
               )}
-              {movement.supplier && (
-                <ListGroup.Item>
-                  <div className="fw-bold"><FaTruck className="me-2"/>Proveedor</div>
-                  {movement.supplier.name}
-                </ListGroup.Item>
-              )}
             </ListGroup>
           </Col>
           <Col md={6}>

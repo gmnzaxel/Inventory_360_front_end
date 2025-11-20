@@ -7,6 +7,7 @@ import { Container, Row, Col, Card, Button, Table, Spinner, Alert, Form, InputGr
 import { FaPlus, FaSearch } from 'react-icons/fa';
 import TransferModal from '../components/TransferModal';
 import { CONTROL_PREFIX } from '../config/api';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const TransfersPage = () => {
   const { hasPermission } = useAuth();
@@ -22,12 +23,15 @@ const TransfersPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const debouncedSearch = useDebouncedValue(searchTerm, 400);
+
   const fetchTransfers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = { movement_type: 'transfer', page, page_size: pageSize };
-      if (searchTerm) params.search = searchTerm;
+      const search = debouncedSearch.trim();
+      if (search) params.search = search;
       const response = await api.get(`${CONTROL_PREFIX}/movements/`, { params });
       const { items, count } = extractListAndCount(response.data);
       setTransfers(items);
@@ -37,17 +41,10 @@ const TransfersPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, searchTerm]);
+  }, [page, pageSize, debouncedSearch]);
 
   useEffect(() => {
-    setLoading(true);
-    const timerId = setTimeout(() => {
-      fetchTransfers();
-    }, 500);
-
-    return () => {
-      clearTimeout(timerId);
-    };
+    fetchTransfers();
   }, [fetchTransfers]);
 
   const handleSuccess = () => {

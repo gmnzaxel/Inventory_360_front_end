@@ -10,7 +10,6 @@ import { useAuth } from '../context/AuthContext';
 const buildInitialForm = (isAdmin, branchId) => ({
   product_id: '',
   branch_id: isAdmin ? '' : branchId ? String(branchId) : '',
-  supplier_id: null,
   quantity: 1,
   unit_price: '',
 });
@@ -24,11 +23,8 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
   const [formErrors, setFormErrors] = useState({});
   const [products, setProducts] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  const requiresSupplier = movementType === 'purchase';
 
   useEffect(() => {
     if (!show) return;
@@ -37,7 +33,6 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
       ? {
           product_id: movementToEdit.product?.id ? String(movementToEdit.product.id) : '',
           branch_id: movementToEdit.branch?.id ? String(movementToEdit.branch.id) : isAdmin ? '' : userBranchId ? String(userBranchId) : '',
-          supplier_id: movementToEdit.supplier?.id ? String(movementToEdit.supplier.id) : null,
           quantity: Math.abs(movementToEdit.quantity),
           unit_price: movementToEdit.unit_price ?? '',
         }
@@ -50,22 +45,16 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
     const fetchData = async () => {
       try {
         const includeAll = movementType === 'purchase' ? 'true' : 'false';
-        const requests = [
+        const [productsRes, branchesRes] = await Promise.all([
           api.get(`${CONTROL_PREFIX}/products/`, { params: { include_all: includeAll } }),
           api.get(`${CONTROL_PREFIX}/branches/`),
-        ];
-        if (requiresSupplier) {
-          requests.push(api.get(`${CONTROL_PREFIX}/suppliers/`));
-        }
-        const [productsRes, branchesRes, suppliersRes] = await Promise.all(requests);
+        ]);
         const productList = normalizeApiList(productsRes.data);
         const branchListRaw = normalizeApiList(branchesRes.data);
         const branchList = isAdmin ? branchListRaw : branchListRaw.filter((branch) => String(branch.id) === String(userBranchId));
-        const supplierList = requiresSupplier ? normalizeApiList(suppliersRes.data) : [];
 
         setProducts(productList);
         setBranches(branchList);
-        setSuppliers(supplierList);
 
         if (!isAdmin && branchList.length === 0) {
           setError({ title: 'Sin sucursal', message: 'No tienes una sucursal asignada para registrar movimientos.' });
@@ -73,13 +62,12 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
       } catch (err) {
         setProducts([]);
         setBranches([]);
-        setSuppliers([]);
         setError(parseApiError(err, 'No se pudieron cargar los datos necesarios.'));
       }
     };
 
     fetchData();
-  }, [show, movementToEdit, isAdmin, requiresSupplier, userBranchId, movementType]);
+  }, [show, movementToEdit, isAdmin, userBranchId, movementType]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -101,7 +89,6 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
     const errors = {};
     if (!formData.product_id) errors.product_id = 'Selecciona un producto.';
     if (!formData.branch_id) errors.branch_id = 'Selecciona una sucursal.';
-    if (requiresSupplier && !formData.supplier_id) errors.supplier_id = 'Selecciona un proveedor.';
 
     const quantityError = validatePositiveNumber(formData.quantity, { label: 'Cantidad', allowZero: false });
     if (quantityError) errors.quantity = quantityError;
@@ -128,13 +115,10 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
     const payload = {
       product_id: Number(formData.product_id),
       branch_id: Number(formData.branch_id),
-      supplier_id: formData.supplier_id ? Number(formData.supplier_id) : undefined,
       quantity: Number(formData.quantity),
       unit_price: formData.unit_price !== '' ? Number(formData.unit_price) : undefined,
       movement_type: movementType,
     };
-
-    if (!payload.supplier_id) delete payload.supplier_id;
 
     try {
       if (movementToEdit) {
@@ -221,24 +205,6 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
             </Form.Select>
             <Form.Control.Feedback type="invalid">{formErrors.branch_id}</Form.Control.Feedback>
           </Form.Group>
-          {requiresSupplier && (
-            <Form.Group className="mb-3">
-              <Form.Label>Proveedor</Form.Label>
-              <Form.Select
-                name="supplier_id"
-                value={formData.supplier_id ?? ''}
-                onChange={handleChange}
-                isInvalid={!!formErrors.supplier_id}
-                required
-              >
-                <option value="">Selecciona un proveedor</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                ))}
-              </Form.Select>
-              <Form.Control.Feedback type="invalid">{formErrors.supplier_id}</Form.Control.Feedback>
-            </Form.Group>
-          )}
           <Row>
             <Col md={6} className="mb-3">
               <Form.Label>Cantidad</Form.Label>

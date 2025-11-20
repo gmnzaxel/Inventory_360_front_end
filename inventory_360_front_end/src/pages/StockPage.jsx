@@ -7,6 +7,7 @@ import { Container, Row, Col, Card, Button, Table, Badge, Form, InputGroup, Imag
 import { FaSearch, FaWrench } from 'react-icons/fa';
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import { CONTROL_PREFIX } from '../config/api';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const StockPage = () => {
   const { hasPermission } = useAuth();
@@ -19,6 +20,7 @@ const StockPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebouncedValue(searchTerm, 400);
 
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [selectedStockItem, setSelectedStockItem] = useState(null);
@@ -28,7 +30,8 @@ const StockPage = () => {
     setError(null);
     try {
       const params = { page, page_size: pageSize };
-      if (searchTerm) params.search = searchTerm;
+      const search = debouncedSearch.trim();
+      if (search) params.search = search;
       const response = await api.get(`${CONTROL_PREFIX}/stocks/`, { params });
       const { items, count } = extractListAndCount(response.data);
       setStockItems(items);
@@ -38,7 +41,7 @@ const StockPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, searchTerm]);
+  }, [page, pageSize, debouncedSearch]);
 
   useEffect(() => {
     fetchStock();

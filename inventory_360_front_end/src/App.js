@@ -16,7 +16,6 @@ import StockPage from './pages/StockPage';
 import RolesPage from './pages/RolesPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
-import SuppliersPage from './pages/SuppliersPage';
 import CategoriesPage from './pages/CategoriesPage';
 import './App.css';
 import { Toast, ToastContainer } from 'react-bootstrap';
@@ -63,7 +62,6 @@ const MainLayout = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave, onNavig
           <Route path="/transfers" element={<RoleGuard requiredPermissions={["transferencias:execute"]}><TransfersPage /></RoleGuard>} />
           <Route path="/branches" element={<RoleGuard allowedRoles={["admin"]}><BranchesPage /></RoleGuard>} />
           <Route path="/stock" element={<RoleGuard requiredPermissions={["productos:read"]}><StockPage /></RoleGuard>} />
-          <Route path="/suppliers" element={<RoleGuard allowedRoles={["admin"]}><SuppliersPage /></RoleGuard>} />
           <Route path="/categories" element={<RoleGuard allowedRoles={["admin"]}><CategoriesPage /></RoleGuard>} />
           <Route path="/roles" element={
             <RoleGuard allowedRoles={["admin"]}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/client';
 import { CONTROL_PREFIX } from '../config/api';
-import { Container, Row, Col, Card, Spinner, Alert, ListGroup, Table } from 'react-bootstrap';
+import { Container, Row, Col, Card, Spinner, Alert, ListGroup, Table, Button } from 'react-bootstrap';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { 
   FaBoxOpen, 
@@ -38,6 +38,8 @@ const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [exportingLowStock, setExportingLowStock] = useState(false);
+  const [lowStockExportError, setLowStockExportError] = useState('');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -53,6 +55,31 @@ const Dashboard = () => {
     };
     fetchDashboardData();
   }, []);
+
+  const handleDownloadLowStock = async () => {
+    if (!data || !data.low_stock_items) return;
+    setLowStockExportError('');
+    setExportingLowStock(true);
+    try {
+      const response = await api.get(`${CONTROL_PREFIX}/stocks/low-stock/export/`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `stock_bajo_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setLowStockExportError('No se pudo descargar el detalle de stock bajo.');
+      console.error(err);
+    } finally {
+      setExportingLowStock(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -145,13 +172,26 @@ const Dashboard = () => {
       <Row className="g-4 mt-2">
         <Col>
           <Card className="dashboard-card">
-            <Card.Header className="card-header-custom">
-              <h5 className="mb-0">
+            <Card.Header className="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <h5 className="mb-0 d-flex align-items-center">
                 <FaExclamationTriangle className="text-warning me-2"/>
                 Productos con Stock Bajo
               </h5>
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={handleDownloadLowStock}
+                disabled={exportingLowStock || !data.low_stock_items?.length}
+              >
+                {exportingLowStock ? 'Descargando...' : 'Descargar Excel'}
+              </Button>
             </Card.Header>
             <Card.Body className="p-0">
+              {lowStockExportError && (
+                <Alert variant="danger" className="m-3 py-2">
+                  {lowStockExportError}
+                </Alert>
+              )}
               {data.low_stock_items.length > 0 ? (
                 <Table responsive hover className="mb-0 dashboard-table">
                   <thead className="table-light">

@@ -4,7 +4,7 @@ import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   FaTachometerAlt, FaBox, FaExchangeAlt, FaShoppingCart, 
-  FaHandHoldingUsd, FaWarehouse, FaBoxes, FaUserShield, FaTruck, FaTag, FaTruckLoading
+  FaHandHoldingUsd, FaWarehouse, FaBoxes, FaUserShield, FaTag, FaTruckLoading
 } from 'react-icons/fa';
 import './Sidebar.css';
 
@@ -61,7 +61,6 @@ const Sidebar = ({ isSidebarOpen, handleMouseEnter, handleMouseLeave, onNavigate
         { to: "/branches", icon: <FaWarehouse className="nav-icon" />, text: "Sucursales" },
         { to: "/categories", icon: <FaTag className="nav-icon" />, text: "Categorias" },
         { to: "/stock", icon: <FaBoxes className="nav-icon" />, text: "Stock" },
-        { to: "/suppliers", icon: <FaTruck className="nav-icon" />, text: "Proveedores" },
       ]
     },
     {

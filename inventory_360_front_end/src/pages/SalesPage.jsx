@@ -8,6 +8,7 @@ import MovementModal from '../components/MovementModal';
 import MovementDetailModal from '../components/MovementDetailModal';
 import { CONTROL_PREFIX } from '../config/api';
 import { useAuth } from '../context/AuthContext';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const SalesPage = () => {
   const [sales, setSales] = useState([]);
@@ -15,6 +16,7 @@ const SalesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebouncedValue(searchTerm, 400);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -36,7 +38,8 @@ const SalesPage = () => {
     setError(null);
     try {
       const params = { movement_type: 'sale', page, page_size: pageSize };
-      if (searchTerm) params.search = searchTerm;
+      const search = debouncedSearch.trim();
+      if (search) params.search = search;
       if (startDate) params.start = startDate;
       if (endDate) params.end = endDate;
       const response = await api.get(`${CONTROL_PREFIX}/movements/`, { params });
@@ -48,13 +51,10 @@ const SalesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, startDate, endDate, page, pageSize]);
+  }, [debouncedSearch, startDate, endDate, page, pageSize]);
   
   useEffect(() => {
-    const timerId = setTimeout(() => {
-      fetchSales();
-    }, 500);
-    return () => clearTimeout(timerId);
+    fetchSales();
   }, [fetchSales]);
 
   const handleSuccess = () => {
@@ -110,7 +110,8 @@ const SalesPage = () => {
   const handleExport = async () => {
     try {
       const params = { movement_type: 'sale' };
-      if (searchTerm) params.search = searchTerm;
+      const search = searchTerm.trim();
+      if (search) params.search = search;
       if (startDate) params.start = startDate;
       if (endDate) params.end = endDate;
       const response = await api.get(`${CONTROL_PREFIX}/movements/export/`, { params, responseType: 'blob' });

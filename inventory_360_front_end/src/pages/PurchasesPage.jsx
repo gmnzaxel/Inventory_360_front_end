@@ -8,6 +8,7 @@ import { CONTROL_PREFIX } from '../config/api';
 import MovementModal from '../components/MovementModal';
 import MovementDetailModal from '../components/MovementDetailModal';
 import { useAuth } from '../context/AuthContext';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const PurchasesPage = () => {
   const { hasPermission } = useAuth();
@@ -33,12 +34,15 @@ const PurchasesPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movementToDelete, setMovementToDelete] = useState(null);
 
+  const debouncedSearch = useDebouncedValue(searchTerm, 400);
+
   const fetchPurchases = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = { movement_type: 'purchase', page, page_size: pageSize };
-      if (searchTerm) params.search = searchTerm;
+      const search = debouncedSearch.trim();
+      if (search) params.search = search;
       if (startDate) params.start = startDate;
       if (endDate) params.end = endDate;
       const response = await api.get(`${CONTROL_PREFIX}/movements/`, { params });
@@ -50,7 +54,7 @@ const PurchasesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, startDate, endDate, searchTerm]);
+  }, [page, pageSize, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
     fetchPurchases();
@@ -112,6 +116,8 @@ const PurchasesPage = () => {
   const handleExport = async () => {
     try {
       const params = { movement_type: 'purchase' };
+      const search = searchTerm.trim();
+      if (search) params.search = search;
       if (startDate) params.start = startDate;
       if (endDate) params.end = endDate;
       const response = await api.get(`${CONTROL_PREFIX}/movements/export/`, { params, responseType: 'blob' });
@@ -131,12 +137,12 @@ const PurchasesPage = () => {
   };
 
   const renderTableContent = () => {
-    if (loading) return <tr><td colSpan="7" className="text-center py-5"><Spinner /></td></tr>;
+    if (loading) return <tr><td colSpan="6" className="text-center py-5"><Spinner /></td></tr>;
     if (error) {
       const details = typeof error === 'string' ? { title: 'Error', message: error } : error;
       return (
         <tr>
-          <td colSpan="7">
+          <td colSpan="6">
             <Alert variant="danger" className="m-3">
               <div className="fw-semibold">{details.title || 'Error'}</div>
               <div>{details.message}</div>
@@ -148,7 +154,7 @@ const PurchasesPage = () => {
         </tr>
       );
     }
-    if (purchases.length === 0) return <tr><td colSpan="7" className="text-center py-5">No hay compras registradas.</td></tr>;
+    if (purchases.length === 0) return <tr><td colSpan="6" className="text-center py-5">No hay compras registradas.</td></tr>;
 
     return purchases.map((purchase, index) => {
       const quantity = Math.abs(Number(purchase.quantity) || 0);
@@ -157,7 +163,6 @@ const PurchasesPage = () => {
       return (
         <tr key={purchase.id} className="animated-item" style={{ animationDelay: `${index * 0.05}s` }}>
           <td className="ps-3 fw-bold">{purchase.product?.name}</td>
-          <td>{purchase.supplier?.name || 'N/A'}</td>
           <td className="text-center fw-semibold">{quantity}</td>
           <td>{new Date(purchase.date).toLocaleDateString()}</td>
           <td className="text-end">${total}</td>
@@ -202,7 +207,7 @@ const PurchasesPage = () => {
                 <InputGroup>
                   <InputGroup.Text><FaSearch /></InputGroup.Text>
                   <Form.Control
-                    placeholder="Buscar por producto o proveedor..."
+                    placeholder="Buscar por producto..."
                     value={searchTerm}
                     onChange={(e) => { setPage(1); setSearchTerm(e.target.value); }}
                   />
@@ -245,7 +250,6 @@ const PurchasesPage = () => {
               <thead className="table-light">
                 <tr>
                   <th className="py-3 ps-3">Producto</th>
-                  <th>Proveedor</th>
                   <th className="text-center">Cantidad</th>
                   <th>Fecha</th>
                   <th className="text-end">Monto Total</th>

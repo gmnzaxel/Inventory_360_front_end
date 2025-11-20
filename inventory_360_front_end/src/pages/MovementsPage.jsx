@@ -5,6 +5,7 @@ import { extractListAndCount } from '../utils/apiHelpers';
 import { Container, Row, Col, Card, Table, Badge, Form, InputGroup, Spinner, Alert, Button } from 'react-bootstrap';
 import { FaSearch, FaFilter, FaDownload, FaCalendar } from 'react-icons/fa';
 import { CONTROL_PREFIX } from '../config/api';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const quickRanges = [
   {
@@ -55,12 +56,15 @@ const MovementsPage = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  const debouncedSearch = useDebouncedValue(searchTerm, 400);
+
   const fetchMovements = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = { page, page_size: pageSize };
-      if (searchTerm) params.search = searchTerm;
+      const search = debouncedSearch.trim();
+      if (search) params.search = search;
       if (movementTypeFilter) params.movement_type = movementTypeFilter;
       if (startDate) params.start = startDate;
       if (endDate) params.end = endDate;
@@ -74,14 +78,10 @@ const MovementsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, movementTypeFilter, page, pageSize, startDate, endDate]);
+  }, [debouncedSearch, movementTypeFilter, page, pageSize, startDate, endDate]);
 
   useEffect(() => {
-    const timerId = setTimeout(() => {
-      fetchMovements();
-    }, 300);
-
-    return () => clearTimeout(timerId);
+    fetchMovements();
   }, [fetchMovements]);
 
   const getMovementTypeInfo = (type) => {
@@ -102,6 +102,8 @@ const MovementsPage = () => {
   const handleExport = async () => {
     try {
       const params = {};
+      const search = searchTerm.trim();
+      if (search) params.search = search;
       if (movementTypeFilter) params.movement_type = movementTypeFilter;
       if (startDate) params.start = startDate;
       if (endDate) params.end = endDate;

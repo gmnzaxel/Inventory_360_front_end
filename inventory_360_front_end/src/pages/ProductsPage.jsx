@@ -7,6 +7,7 @@ import { FaPlus, FaSearch, FaEdit, FaTrash } from 'react-icons/fa';
 import ProductModal from '../components/ProductModal';
 import { useAuth } from '../context/AuthContext';
 import { CONTROL_PREFIX } from '../config/api';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
@@ -14,6 +15,7 @@ const ProductsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebouncedValue(searchTerm, 400);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [productToEdit, setProductToEdit] = useState(null);
@@ -36,7 +38,8 @@ const ProductsPage = () => {
         page_size: pageSize,
         include_all: isAdmin ? 'true' : 'false',
       };
-      if (searchTerm) params.search = searchTerm;
+      const search = debouncedSearch.trim();
+      if (search) params.search = search;
       const response = await api.get(`${CONTROL_PREFIX}/products/`, { params });
       const { items, count } = extractListAndCount(response.data);
       setProducts(items);
@@ -46,17 +49,10 @@ const ProductsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, page, pageSize, isAdmin]);
+  }, [debouncedSearch, page, pageSize, isAdmin]);
 
   useEffect(() => {
-    setLoading(true);
-    const timerId = setTimeout(() => {
-      fetchProducts();
-    }, 500);
-
-    return () => {
-      clearTimeout(timerId);
-    };
+    fetchProducts();
   }, [fetchProducts]);
 
   const handleSuccess = () => {
@@ -249,7 +245,6 @@ const ProductsPage = () => {
 };
 
 export default ProductsPage;
-
 
 
 
