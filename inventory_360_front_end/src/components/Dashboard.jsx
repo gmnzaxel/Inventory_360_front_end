@@ -61,7 +61,7 @@ const Dashboard = () => {
     setLowStockExportError('');
     setExportingLowStock(true);
     try {
-      const response = await api.get(`${CONTROL_PREFIX}/stocks/low-stock-export/`, {
+      const response = await api.get(`${CONTROL_PREFIX}/stocks/low-stock/export/`, {
         responseType: 'blob',
       });
       const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
