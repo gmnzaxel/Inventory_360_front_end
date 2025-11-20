@@ -46,7 +46,7 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
       try {
         const includeAll = movementType === 'purchase' ? 'true' : 'false';
         const [productsRes, branchesRes] = await Promise.all([
-          api.get(`${CONTROL_PREFIX}/products/`, { params: { include_all: includeAll } }),
+          api.get(`${CONTROL_PREFIX}/products/`, { params: { include_all: includeAll, page_size: 500 } }),
           api.get(`${CONTROL_PREFIX}/branches/`),
         ]);
         const productList = normalizeApiList(productsRes.data);
