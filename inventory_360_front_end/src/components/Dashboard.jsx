@@ -3,10 +3,10 @@ import api from '../api/client';
 import { CONTROL_PREFIX } from '../config/api';
 import { Container, Row, Col, Card, Spinner, Alert, ListGroup, Table, Button } from 'react-bootstrap';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { 
-  FaBoxOpen, 
-  FaChartLine, 
-  FaExclamationTriangle, 
+import {
+  FaBoxOpen,
+  FaChartLine,
+  FaExclamationTriangle,
   FaReceipt,
   FaArrowUp,
   FaArrowDown,
@@ -61,7 +61,7 @@ const Dashboard = () => {
     setLowStockExportError('');
     setExportingLowStock(true);
     try {
-      const response = await api.get(`${CONTROL_PREFIX}/stocks/low-stock/export/`, {
+      const response = await api.get(`${CONTROL_PREFIX}/stocks/download-low-stock/`, {
         responseType: 'blob',
       });
       const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
@@ -98,16 +98,16 @@ const Dashboard = () => {
     <Container fluid className="dashboard-container">
       <Row className="g-4 mb-4">
         <Col md={6} xl={3}>
-          <StatCard title="Total de Productos" value={data.total_products} icon={<FaBoxOpen className="text-primary"/>} />
+          <StatCard title="Total de Productos" value={data.total_products} icon={<FaBoxOpen className="text-primary" />} />
         </Col>
         <Col md={6} xl={3}>
-          <StatCard title="Ventas del Mes" value={`$${data.monthly_sales.toFixed(2)}`} icon={<FaChartLine className="text-success"/>} />
+          <StatCard title="Ventas del Mes" value={`$${data.monthly_sales.toFixed(2)}`} icon={<FaChartLine className="text-success" />} />
         </Col>
         <Col md={6} xl={3}>
-          <StatCard title="Stock Bajo" value={data.low_stock_count} icon={<FaExclamationTriangle className="text-warning"/>} />
+          <StatCard title="Stock Bajo" value={data.low_stock_count} icon={<FaExclamationTriangle className="text-warning" />} />
         </Col>
         <Col md={6} xl={3}>
-            <StatCard title="N° de Ventas" value={data.monthly_sales_count} icon={<FaReceipt className="text-info"/>} />
+          <StatCard title="N° de Ventas" value={data.monthly_sales_count} icon={<FaReceipt className="text-info" />} />
         </Col>
       </Row>
 
@@ -174,7 +174,7 @@ const Dashboard = () => {
           <Card className="dashboard-card">
             <Card.Header className="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-2">
               <h5 className="mb-0 d-flex align-items-center">
-                <FaExclamationTriangle className="text-warning me-2"/>
+                <FaExclamationTriangle className="text-warning me-2" />
                 Productos con Stock Bajo
               </h5>
               <Button
