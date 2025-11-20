@@ -36,13 +36,34 @@ const TransferModal = ({ show, handleClose, onSuccess }) => {
       branch_from_id: !isAdmin && userBranchId ? String(userBranchId) : '',
     });
 
+    const fetchAllProducts = async () => {
+      const aggregated = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const response = await api.get(`${CONTROL_PREFIX}/products/`, {
+          params: {
+            include_all: 'true',
+            page,
+            page_size: 100,
+          },
+        });
+        aggregated.push(...normalizeApiList(response.data));
+        if (response.data && response.data.next) {
+          page += 1;
+        } else {
+          hasMore = false;
+        }
+      }
+      return aggregated;
+    };
+
     const fetchData = async () => {
       try {
-        const [productsRes, branchesRes] = await Promise.all([
-          api.get(`${CONTROL_PREFIX}/products/`),
+        const [productList, branchesRes] = await Promise.all([
+          fetchAllProducts(),
           api.get(`${CONTROL_PREFIX}/branches/`),
         ]);
-        const productList = normalizeApiList(productsRes.data);
         const branchListRaw = normalizeApiList(branchesRes.data);
 
         setProducts(productList);

@@ -42,14 +42,36 @@ const MovementModal = ({ show, handleClose, movementType, onSuccess, movementToE
     setFormErrors({});
     setError(null);
 
+    const fetchAllProducts = async (includeAllParam) => {
+      const aggregated = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const response = await api.get(`${CONTROL_PREFIX}/products/`, {
+          params: {
+            include_all: includeAllParam,
+            page,
+            page_size: 100,
+          },
+        });
+        aggregated.push(...normalizeApiList(response.data));
+        const hasNext = Boolean(response.data && response.data.next);
+        if (hasNext) {
+          page += 1;
+        } else {
+          hasMore = false;
+        }
+      }
+      return aggregated;
+    };
+
     const fetchData = async () => {
       try {
         const includeAll = movementType === 'purchase' ? 'true' : 'false';
-        const [productsRes, branchesRes] = await Promise.all([
-          api.get(`${CONTROL_PREFIX}/products/`, { params: { include_all: includeAll, page_size: 500 } }),
+        const [productList, branchesRes] = await Promise.all([
+          fetchAllProducts(includeAll),
           api.get(`${CONTROL_PREFIX}/branches/`),
         ]);
-        const productList = normalizeApiList(productsRes.data);
         const branchListRaw = normalizeApiList(branchesRes.data);
         const branchList = isAdmin ? branchListRaw : branchListRaw.filter((branch) => String(branch.id) === String(userBranchId));
 
