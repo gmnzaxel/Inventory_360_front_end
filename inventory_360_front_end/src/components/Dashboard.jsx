@@ -64,6 +64,37 @@ const Dashboard = () => {
       const response = await api.get(`${CONTROL_PREFIX}/stocks/download-low-stock/`, {
         responseType: 'blob',
       });
+      
+      // Verificar el status code primero
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`Error del servidor: ${response.status}`);
+      }
+      
+      // Verificar si la respuesta es un error (cuando responseType es 'blob', los errores también vienen como blob)
+      const contentType = response.headers['content-type'] || response.headers['Content-Type'] || '';
+      
+      // Si el content-type es JSON, es probable que sea un error
+      if (contentType.includes('application/json')) {
+        // Es un error JSON, leerlo como texto
+        const text = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsText(response.data);
+        });
+        try {
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.detail || errorData.message || 'Error al descargar el archivo');
+        } catch (parseErr) {
+          throw new Error('Error al procesar la respuesta del servidor');
+        }
+      }
+      
+      // Verificar que el blob no esté vacío
+      if (!response.data || response.data.size === 0) {
+        throw new Error('El archivo descargado está vacío');
+      }
+      
       const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -74,8 +105,60 @@ const Dashboard = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setLowStockExportError('No se pudo descargar el detalle de stock bajo.');
-      console.error(err);
+      let errorMessage = 'No se pudo descargar el detalle de stock bajo.';
+      
+      // Si el error tiene response.data como Blob (error HTTP con responseType blob)
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsText(err.response.data);
+          });
+          try {
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.detail || errorData.message || errorData.error?.message || errorMessage;
+          } catch (parseErr) {
+            // Si no se puede parsear, usar el status code
+            if (err.response?.status) {
+              if (err.response.status === 404) {
+                errorMessage = 'El endpoint no fue encontrado. Verifique la configuración del servidor.';
+              } else if (err.response.status === 403) {
+                errorMessage = 'No tiene permisos para descargar este archivo.';
+              } else if (err.response.status === 401) {
+                errorMessage = 'Su sesión ha expirado. Por favor, inicie sesión nuevamente.';
+              } else {
+                errorMessage = `Error ${err.response.status}: ${errorMessage}`;
+              }
+            }
+          }
+        } catch (readErr) {
+          // Si no se puede leer el blob, usar el status code
+          if (err.response?.status) {
+            errorMessage = `Error ${err.response.status}: ${errorMessage}`;
+          }
+        }
+      } else if (err.response?.data) {
+        // Si el error no es un blob, intentar leer el mensaje directamente
+        if (typeof err.response.data === 'object') {
+          errorMessage = err.response.data.detail || err.response.data.message || errorMessage;
+        } else if (typeof err.response.data === 'string') {
+          errorMessage = err.response.data;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      } else if (err.response?.status) {
+        errorMessage = `Error ${err.response.status}: ${errorMessage}`;
+      }
+      
+      setLowStockExportError(errorMessage);
+      console.error('Error al descargar stock bajo:', {
+        error: err,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        url: `${CONTROL_PREFIX}/stocks/download-low-stock/`,
+      });
     } finally {
       setExportingLowStock(false);
     }
